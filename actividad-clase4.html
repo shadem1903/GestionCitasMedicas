@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Actividad Clase 4</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f6f8;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+h1, h2 {
+  color: #2c3e50;
+}
+
+h1 {
+  text-align: center;
+}
+
+.section {
+  margin-top: 30px;
+}
+
+label {
+  font-weight: bold;
+}
+
+.line {
+  border-bottom: 1px solid #ccc;
+  margin: 8px 0 16px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+
+th {
+  background-color: #e9eef3;
+}
+
+.note {
+  background: #eef7ff;
+  padding: 15px;
+  border-left: 4px solid #3498db;
+  margin-top: 20px;
+}
+
+.footer {
+  margin-top: 30px;
+  padding: 15px;
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>🌐 Actividad Clase 4</h1>
+<h2>Comunicación entre Servicios + REST + Eventos + Service Discovery</h2>
+
+<p><strong>Equipo:</strong> Equipo de Desarrollo</p>
+<p><strong>Proyecto:</strong> Gestión de Citas Médicas</p>
+
+<div class="section">
+<h2>🪜 1. Interacciones entre Servicios</h2>
+
+<p><strong>Interacción 1</strong></p>
+<label>Servicio que envía:</label>
+<div class="line">Servicio de Pacientes</div>
+<label>Servicio que recibe:</label>
+<div class="line">Servicio de Citas</div>
+<label>Información enviada:</label>
+<div class="line">Solicitud de nueva cita (ID paciente, especialidad, fecha preferida)</div>
+<label>¿Qué sucede si no responde?</label>
+<div class="line">El sistema muestra error al paciente y reintenta la solicitud con timeout</div>
+
+<p><strong>Interacción 2</strong></p>
+<label>Servicio que envía:</label>
+<div class="line">Servicio de Citas</div>
+<label>Servicio que recibe:</label>
+<div class="line">Servicio de Disponibilidad Médica</div>
+<label>Información enviada:</label>
+<div class="line">Consulta de horarios disponibles para la especialidad en rango de fechas</div>
+<label>¿Qué sucede si no responde?</label>
+<div class="line">Se muestra mensaje de indisponibilidad y se invita al usuario a intentar más tarde</div>
+
+<p><strong>Interacción 3</strong></p>
+<label>Servicio que envía:</label>
+<div class="line">Servicio de Citas</div>
+<label>Servicio que recibe:</label>
+<div class="line">Servicio de Notificaciones</div>
+<label>Información enviada:</label>
+<div class="line">Evento "Cita Creada" con detalles: email paciente, fecha, hora, doctor</div>
+<label>¿Qué sucede si no responde?</label>
+<div class="line">La cita se crea igual pero el paciente podría no recibir confirmación inmediata</div>
+</div>
+
+<div class="section">
+<h2>🪜 2. REST o Eventos</h2>
+
+<table>
+<tr>
+<th>Interacción</th>
+<th>REST</th>
+<th>Evento</th>
+<th>¿Por qué?</th>
+</tr>
+<tr>
+<td>1</td>
+<td>✓</td>
+<td></td>
+<td>Necesita respuesta inmediata del disponibilidad</td>
+</tr>
+<tr>
+<td>2</td>
+<td>✓</td>
+<td></td>
+<td>Consulta de datos en tiempo real</td>
+</tr>
+<tr>
+<td>3</td>
+<td></td>
+<td>✓</td>
+<td>Publicar el evento para que otros servicios lo procesen</td>
+</tr>
+</table>
+</div>
+
+<div class="section">
+<h2>🪜 3. Síncrono o Asíncrono</h2>
+
+<table>
+<tr>
+<th>Interacción</th>
+<th>Síncrono</th>
+<th>Asíncrono</th>
+<th>Justificación</th>
+</tr>
+<tr>
+<td>1</td>
+<td>✓</td>
+<td></td>
+<td>El paciente espera confirmación de la solicitud</td>
+</tr>
+<tr>
+<td>2</td>
+<td>✓</td>
+<td></td>
+<td>Consulta de disponibilidad requiere respuesta inmediata</td>
+</tr>
+<tr>
+<td>3</td>
+<td></td>
+<td>✓</td>
+<td>No es crítico si se demoran las notificaciones</td>
+</tr>
+</table>
+</div>
+
+<div class="section">
+<h2>🪜 4. Eventos Importantes del Sistema</h2>
+1️⃣ CitaCreada: Se publica cuando una cita es reservada exitosamente<br><br>
+2️⃣ CitaCancelada: Se publica cuando un paciente o doctor cancela una cita<br><br>
+3️⃣ CitaProxima: Se publica 24 horas antes de una cita para reminder
+</div>
+
+<div class="section">
+<h2>🪜 5. Análisis de Fallos</h2>
+<label>Servicio más crítico:</label>
+<div class="line">Servicio de Disponibilidad Médica</div>
+<label>¿Qué pasaría si falla?</label>
+<div class="line">Los usuarios no podrían reservar citas y el servicio de citas no funcionaría</div>
+<label>¿El sistema debe detenerse o continuar?</label>
+<div class="line">El sistema debe continuar con cache de datos anteriores o modo degradado</div>
+<label>¿Cómo podrían manejar este fallo?</label>
+<div class="line">Implementar reintentos automáticos, circuit breaker, fallback cache, y alertas al ops</div>
+</div>
+
+<div class="section">
+<h2>🪜 6. Service Discovery</h2>
+<label>¿Qué problema ocurre si cambia la IP de un servicio?</label>
+<div class="line">El servicio cliente seguiría intentando conectar a una IP inválida y fallaría</div>
+<label>¿Cómo sabría un servicio dónde encontrar otro?</label>
+<div class="line">A través de un Service Discovery (Consul, Eureka, DNS) que mantiene registro actualizado</div>
+<label>¿Por qué sería útil Service Discovery?</label>
+<div class="line">Permite escalabilidad automática, rebalanceo de carga y tolerancia a fallos</div>
+<label>¿Dónde lo aplicarían en su sistema?</label>
+<div class="line">En todas las interacciones: Citas descubre Disponibilidad, Notificaciones, y Pacientes</div>
+</div>
+
+<div class="section">
+<h2>🪜 7. Mini Diagrama</h2>
+<p>Dibujen:</p>
+<p><strong>Servicio A → Service Discovery → Servicio B</strong></p>
+</div>
+
+<div class="note">
+💡 <strong>Ayuda rápida</strong><br>
+REST → petición directa<br>
+Evento → algo ocurrió<br>
+Síncrono → espera respuesta<br>
+Asíncrono → continúa sin esperar<br>
+Service Discovery → permite encontrar servicios automáticamente
+</div>
+
+<div class="footer">
+🎤 El equipo debe poder explicar:<br>
+✔ una interacción importante<br>
+✔ un evento del sistema<br>
+✔ qué pasa si un servicio falla<br>
+✔ dónde usarían Service Discovery
+</div>
+
+</div>
+</body>
+</html>

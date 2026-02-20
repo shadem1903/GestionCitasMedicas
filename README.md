@@ -233,12 +233,3 @@ Cada usuario tiene permisos específicos gestionados por MS-2 mediante tokens JW
 
 ---
 
-
-
-
-
-
-
-
-> _Sistema diseñado bajo principios de alta disponibilid
-

@@ -231,14 +231,3 @@ Cada usuario tiene permisos específicos gestionados por MS-2 mediante tokens JW
 -  **Notificaciones automáticas** al equipo técnico y usuarios ante fallos críticos
 -  **Política de backups** y plan de recuperación ante desastres probado periódicamente
 
----
-
-
-
-
-
-
-
-
-> _Sistema diseñado bajo principios de alta disponibilid
-

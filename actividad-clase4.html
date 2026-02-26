@@ -18,57 +18,17 @@ body {
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-
-h1, h2 {
-  color: #2c3e50;
-}
-
-h1 {
-  text-align: center;
-}
-
-.section {
-  margin-top: 30px;
-}
-
-label {
-  font-weight: bold;
-}
-
-.line {
-  border-bottom: 1px solid #ccc;
-  margin: 8px 0 16px 0;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  text-align: center;
-}
-
-th {
-  background-color: #e9eef3;
-}
-
-.note {
-  background: #eef7ff;
-  padding: 15px;
-  border-left: 4px solid #3498db;
-  margin-top: 20px;
-}
-
-.footer {
-  margin-top: 30px;
-  padding: 15px;
-  background: #f1f1f1;
-  border-radius: 8px;
-}
+h1, h2 { color: #2c3e50; }
+h1 { text-align: center; }
+.section { margin-top: 30px; }
+label { font-weight: bold; }
+.line { border-bottom: 1px solid #ccc; margin: 8px 0 16px 0; padding-bottom:5px;}
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+th { background-color: #e9eef3; }
+.note { background: #eef7ff; padding: 15px; border-left: 4px solid #3498db; margin-top: 20px; }
+.footer { margin-top: 30px; padding: 15px; background: #f1f1f1; border-radius: 8px; }
+pre { background:#f7f7f7; padding:10px; border-radius:6px; }
 </style>
 </head>
 <body>
@@ -76,43 +36,62 @@ th {
 <div class="container">
 
 <h1>🌐 Actividad Clase 4</h1>
-<h2>Comunicación entre Servicios + REST + Eventos + Service Discovery</h2>
+<h2>Comunicación entre Servicios + REST + Eventos </h2>
 
-<p><strong>Equipo:</strong> Equipo de Desarrollo</p>
-<p><strong>Proyecto:</strong> Gestión de Citas Médicas</p>
+<p><strong>Equipo:</strong> Arquitectura Sistema de Citas</p>
+<p><strong>Proyecto:</strong> Plataforma de Gestión de Citas Médicas</p>
 
 <div class="section">
 <h2>🪜 1. Interacciones entre Servicios</h2>
 
-<p><strong>Interacción 1</strong></p>
+<p><strong>Interacción 1 – Validación de disponibilidad antes de agendar</strong></p>
 <label>Servicio que envía:</label>
-<div class="line">Servicio de Pacientes</div>
-<label>Servicio que recibe:</label>
-<div class="line">Servicio de Citas</div>
-<label>Información enviada:</label>
-<div class="line">Solicitud de nueva cita (ID paciente, especialidad, fecha preferida)</div>
-<label>¿Qué sucede si no responde?</label>
-<div class="line">El sistema muestra error al paciente y reintenta la solicitud con timeout</div>
-
-<p><strong>Interacción 2</strong></p>
-<label>Servicio que envía:</label>
-<div class="line">Servicio de Citas</div>
+<div class="line">Servicio de Gestión de Citas</div>
 <label>Servicio que recibe:</label>
 <div class="line">Servicio de Disponibilidad Médica</div>
 <label>Información enviada:</label>
-<div class="line">Consulta de horarios disponibles para la especialidad en rango de fechas</div>
+<div class="line">
+ID del médico, especialidad, fecha y hora solicitada. 
+El sistema consulta si el horario está libre y si el médico está activo.
+</div>
 <label>¿Qué sucede si no responde?</label>
-<div class="line">Se muestra mensaje de indisponibilidad y se invita al usuario a intentar más tarde</div>
+<div class="line">
+No se puede confirmar la cita. El sistema debe bloquear temporalmente la operación, 
+aplicar reintentos automáticos y mostrar un mensaje controlado al usuario 
+indicando que no se pudo verificar la disponibilidad.
+</div>
 
-<p><strong>Interacción 3</strong></p>
+<p><strong>Interacción 2 – Validación de identidad y permisos</strong></p>
 <label>Servicio que envía:</label>
-<div class="line">Servicio de Citas</div>
+<div class="line">Servicio de Gestión de Citas</div>
+<label>Servicio que recibe:</label>
+<div class="line">Servicio de Usuarios y Autenticación</div>
+<label>Información enviada:</label>
+<div class="line">
+Token JWT del usuario autenticado, ID del paciente y del médico. 
+Se valida que el paciente exista y que el usuario tenga permisos para crear la cita.
+</div>
+<label>¿Qué sucede si no responde?</label>
+<div class="line">
+La cita no debe registrarse. 
+El sistema cancela la operación para evitar inconsistencias o problemas de seguridad.
+</div>
+
+<p><strong>Interacción 3 – Notificación posterior a la creación de la cita</strong></p>
+<label>Servicio que envía:</label>
+<div class="line">Servicio de Gestión de Citas</div>
 <label>Servicio que recibe:</label>
 <div class="line">Servicio de Notificaciones</div>
 <label>Información enviada:</label>
-<div class="line">Evento "Cita Creada" con detalles: email paciente, fecha, hora, doctor</div>
+<div class="line">
+Evento: "Cita creada", incluyendo fecha, hora, médico y datos de contacto del paciente.
+</div>
 <label>¿Qué sucede si no responde?</label>
-<div class="line">La cita se crea igual pero el paciente podría no recibir confirmación inmediata</div>
+<div class="line">
+La cita ya fue registrada exitosamente. 
+El evento queda almacenado en la cola de mensajes para ser procesado cuando el servicio esté disponible.
+</div>
+
 </div>
 
 <div class="section">
@@ -126,22 +105,22 @@ th {
 <th>¿Por qué?</th>
 </tr>
 <tr>
-<td>1</td>
-<td>✓</td>
+<td>Validación de disponibilidad</td>
+<td>✔</td>
 <td></td>
-<td>Necesita respuesta inmediata del disponibilidad</td>
+<td>Se requiere respuesta inmediata para confirmar si el horario está libre antes de registrar la cita.</td>
 </tr>
 <tr>
-<td>2</td>
-<td>✓</td>
+<td>Validación de usuario</td>
+<td>✔</td>
 <td></td>
-<td>Consulta de datos en tiempo real</td>
+<td>Es necesario validar identidad y permisos en tiempo real para continuar la operación.</td>
 </tr>
 <tr>
-<td>3</td>
+<td>Envío de notificación</td>
 <td></td>
-<td>✓</td>
-<td>Publicar el evento para que otros servicios lo procesen</td>
+<td>✔</td>
+<td>Es un proceso posterior que no debe bloquear la creación de la cita.</td>
 </tr>
 </table>
 </div>
@@ -157,78 +136,108 @@ th {
 <th>Justificación</th>
 </tr>
 <tr>
-<td>1</td>
-<td>✓</td>
+<td>Validación de disponibilidad</td>
+<td>✔</td>
 <td></td>
-<td>El paciente espera confirmación de la solicitud</td>
+<td>El sistema debe esperar confirmación para evitar doble asignación de horarios.</td>
 </tr>
 <tr>
-<td>2</td>
-<td>✓</td>
+<td>Validación de usuario</td>
+<td>✔</td>
 <td></td>
-<td>Consulta de disponibilidad requiere respuesta inmediata</td>
+<td>Sin validación no se puede continuar con la operación.</td>
 </tr>
 <tr>
-<td>3</td>
+<td>Notificación</td>
 <td></td>
-<td>✓</td>
-<td>No es crítico si se demoran las notificaciones</td>
+<td>✔</td>
+<td>No es crítica para la transacción principal; puede procesarse después.</td>
 </tr>
 </table>
 </div>
 
 <div class="section">
 <h2>🪜 4. Eventos Importantes del Sistema</h2>
-1️⃣ CitaCreada: Se publica cuando una cita es reservada exitosamente<br><br>
-2️⃣ CitaCancelada: Se publica cuando un paciente o doctor cancela una cita<br><br>
-3️⃣ CitaProxima: Se publica 24 horas antes de una cita para reminder
+1️⃣ Cita creada<br><br>
+2️⃣ Cita cancelada<br><br>
+3️⃣ Cita completada y enviada a historial clínico
 </div>
 
 <div class="section">
 <h2>🪜 5. Análisis de Fallos</h2>
 <label>Servicio más crítico:</label>
-<div class="line">Servicio de Disponibilidad Médica</div>
+<div class="line">Servicio de Gestión de Citas (núcleo del sistema)</div>
+
 <label>¿Qué pasaría si falla?</label>
-<div class="line">Los usuarios no podrían reservar citas y el servicio de citas no funcionaría</div>
+<div class="line">
+Los pacientes no podrían agendar ni cancelar citas. 
+El sistema perdería su funcionalidad principal y se generaría congestión administrativa.
+</div>
+
 <label>¿El sistema debe detenerse o continuar?</label>
-<div class="line">El sistema debe continuar con cache de datos anteriores o modo degradado</div>
+<div class="line">
+Debe continuar parcialmente. 
+Otros servicios como historial o catálogo de especialidades pueden seguir funcionando.
+</div>
+
 <label>¿Cómo podrían manejar este fallo?</label>
-<div class="line">Implementar reintentos automáticos, circuit breaker, fallback cache, y alertas al ops</div>
+<div class="line">
+Implementando Circuit Breaker, balanceo de carga, réplicas activas, 
+reintentos automáticos con backoff exponencial y monitoreo en tiempo real.
+</div>
 </div>
 
 <div class="section">
 <h2>🪜 6. Service Discovery</h2>
+
 <label>¿Qué problema ocurre si cambia la IP de un servicio?</label>
-<div class="line">El servicio cliente seguiría intentando conectar a una IP inválida y fallaría</div>
-<label>¿Cómo sabría un servicio dónde encontrar otro?</label>
-<div class="line">A través de un Service Discovery (Consul, Eureka, DNS) que mantiene registro actualizado</div>
-<label>¿Por qué sería útil Service Discovery?</label>
-<div class="line">Permite escalabilidad automática, rebalanceo de carga y tolerancia a fallos</div>
-<label>¿Dónde lo aplicarían en su sistema?</label>
-<div class="line">En todas las interacciones: Citas descubre Disponibilidad, Notificaciones, y Pacientes</div>
+<div class="line">
+Los demás servicios no podrían localizarlo, provocando fallos de comunicación.
 </div>
+
+<label>¿Cómo sabría un servicio dónde encontrar otro?</label>
+<div class="line">
+Consultando un registro central dinámico donde los servicios se registran automáticamente al iniciar.
+</div>
+
+<label>¿Por qué sería útil Service Discovery?</label>
+<div class="line">
+Permite escalabilidad automática, tolerancia a fallos y despliegue dinámico sin configuraciones manuales.
+</div>
+
+<label>¿Dónde lo aplicarían en su sistema?</label>
+<div class="line">
+Entre todos los microservicios para permitir que el servicio de citas encuentre automáticamente 
+al de disponibilidad, usuarios y notificaciones.
+</div>
+
+</div>
+
+
 
 <div class="section">
 <h2>🪜 7. Mini Diagrama</h2>
-<p>Dibujen:</p>
-<p><strong>Servicio A → Service Discovery → Servicio B</strong></p>
+
+<img src="icons/diagrama.png" 
+     alt="Diagrama Arquitectura Sistema de Citas"
+     style="width:100%; max-width:800px; display:block; margin:auto; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
 </div>
 
 <div class="note">
-💡 <strong>Ayuda rápida</strong><br>
-REST → petición directa<br>
-Evento → algo ocurrió<br>
-Síncrono → espera respuesta<br>
-Asíncrono → continúa sin esperar<br>
-Service Discovery → permite encontrar servicios automáticamente
+💡 <strong>Resumen Técnico</strong><br>
+Las validaciones críticas usan comunicación REST síncrona.<br>
+Las notificaciones usan eventos asíncronos.<br>
+Service Discovery permite encontrar servicios dinámicamente.<br>
+El núcleo del sistema debe tener alta disponibilidad.
 </div>
 
 <div class="footer">
-🎤 El equipo debe poder explicar:<br>
-✔ una interacción importante<br>
-✔ un evento del sistema<br>
-✔ qué pasa si un servicio falla<br>
-✔ dónde usarían Service Discovery
+🎤 El equipo puede explicar:<br>
+✔ Cómo se valida un horario antes de crear una cita<br>
+✔ Cómo funcionan los eventos del sistema<br>
+✔ Qué ocurre ante fallos críticos<br>
+✔ Cómo Service Discovery mejora la arquitectura
 </div>
 
 </div>

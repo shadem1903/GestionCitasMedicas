@@ -1,10 +1,10 @@
-# 🏥 Prototipo Técnico — Plataforma de Gestión de Citas Médicas
+# Prototipo Técnico — Plataforma de Gestión de Citas Médicas
 
 Prototipo inicial con **2 microservicios** corriendo en Docker, comunicados entre sí mediante REST y compartiendo una base de datos PostgreSQL.
 
 ---
 
-## 📦 Servicios incluidos
+## Servicios incluidos
 
 | Servicio | Puerto | Descripción |
 |---|---|---|
@@ -14,14 +14,14 @@ Prototipo inicial con **2 microservicios** corriendo en Docker, comunicados entr
 
 ---
 
-## ✅ Requisitos previos
+## Requisitos previos
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y corriendo
 - No tener nada ocupando los puertos `3001`, `3004` o `5432`
 
 ---
 
-## 🚀 Cómo ejecutarlo
+## Cómo ejecutarlo
 
 ### 1. Clonar o descomprimir el proyecto
 
@@ -74,7 +74,7 @@ docker-compose down -v
 
 ---
 
-## 🧪 Pruebas rápidas con curl
+## Pruebas rápidas con curl
 
 ### MS-1 — Gestión de Usuarios
 
@@ -123,7 +123,7 @@ curl -X PATCH http://localhost:3004/citas/1/cancelar
 
 ---
 
-## 🔗 Comunicación entre servicios
+## Comunicación entre servicios
 
 Cuando se agenda una cita, `ms-citas` realiza **2 llamadas REST síncronas** a `ms-usuarios` antes de registrar:
 
@@ -140,7 +140,6 @@ Si `ms-usuarios` no responde, `ms-citas` rechaza la operación con error `422`.
 
 ---
 
-## 📁 Estructura del proyecto
 
 ```
 prototipo/
@@ -178,6 +177,6 @@ docker exec -it citas_postgres psql -U admin -d citas_db
 
 ---
 
-## ⚠️ Nota
+## Nota
 
-Este prototipo usa **una sola base de datos compartida** para simplificar el entorno de desarrollo. En producción, cada microservicio tendría su propia base de datos aislada (ver documento arquitectónico).
+Este prototipo usa **una sola base de datos compartida** para simplificar el entorno de desarrollo. 

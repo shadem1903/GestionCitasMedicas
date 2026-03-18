@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BibliotecaNet – Gestión de Biblioteca</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --ink:    #1a1209;
+      --paper:  #f7f3ec;
+      --sepia:  #c8a96e;
+      --rust:   #b5451b;
+      --moss:   #3d5a3e;
+      --cream:  #ede8df;
+      --shadow: rgba(26,18,9,0.15);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px var(--shadow);
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--sepia); }
+    nav { display: flex; gap: 0.5rem; }
+    nav button {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    nav button.active, nav button:hover { color: var(--paper); background: rgba(255,255,255,0.1); }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--ink) 0%, #2e1e0e 100%);
+      color: var(--paper);
+      padding: 3rem 2.5rem;
+      border-radius: 16px;
+      margin-bottom: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '📚';
+      position: absolute;
+      right: 2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 7rem;
+      opacity: 0.08;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 0.75rem;
+    }
+    .hero h1 em { color: var(--sepia); font-style: normal; }
+    .hero p { color: #b8b0a4; font-size: 1rem; max-width: 480px; line-height: 1.6; }
+
+    /* ── SEARCH ── */
+    .search-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+    }
+    .search-bar input {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      padding: 0.7rem 1.1rem;
+      border-radius: 8px;
+      outline: none;
+      transition: border .2s;
+    }
+    .search-bar input::placeholder { color: #888; }
+    .search-bar input:focus { border-color: var(--sepia); }
+    .search-bar button {
+      background: var(--sepia);
+      color: var(--ink);
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.7rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .search-bar button:hover { opacity: 0.85; }
+
+    /* ── STATS ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .stat-card {
+      background: white;
+      border: 1px solid var(--cream);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+      box-shadow: 0 2px 8px var(--shadow);
+      animation: fadeUp .4s ease both;
+    }
+    .stat-card:nth-child(2) { animation-delay: .07s; }
+    .stat-card:nth-child(3) { animation-delay: .14s; }
+    .stat-card:nth-child(4) { animation-delay: .21s; }
+    .stat-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--rust);
+      line-height: 1;
+    }
+    .stat-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: .08em; margin-top: .3rem; }
+
+    /* ── SECTIONS ── */
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--cream);
+    }
+
+    /* ── BOOK GRID ── */
+    .books-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+    .book-card {
+      background: white;
+      border: 1px solid var(--cream);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px var(--shadow);
+      transition: transform .2s, box-shadow .2s;
+      animation: fadeUp .5s ease both;
+      cursor: pointer;
+    }
+    .book-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px var(--shadow); }
+    .book-spine {
+      height: 8px;
+    }
+    .book-body { padding: 1.1rem; }
+    .book-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: .3rem;
+    }
+    .book-author { font-size: 0.8rem; color: #888; margin-bottom: .7rem; }
+    .book-meta { display: flex; justify-content: space-between; align-items: center; }
+    .book-genre {
+      background: var(--cream);
+      color: #666;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: .2rem .55rem;
+      border-radius: 99px;
+    }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: .2rem .6rem;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .badge.disponible { background: #e7f5ec; color: var(--moss); }
+    .badge.prestado   { background: #fdf0e8; color: var(--rust); }
+
+    .btn-prestamo {
+      width: 100%;
+      margin-top: .8rem;
+      padding: .5rem;
+      border-radius: 7px;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-prestamo.solicitar { background: var(--ink); color: white; }
+    .btn-prestamo.solicitar:hover { background: var(--rust); }
+    .btn-prestamo.no-disponible { background: var(--cream); color: #aaa; cursor: not-allowed; }
+
+    /* ── TABLE ── */
+    .table-wrap { background: white; border-radius: 12px; border: 1px solid var(--cream); overflow: hidden; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 2.5rem; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--ink); color: var(--paper); }
+    th { padding: .85rem 1rem; text-align: left; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+    td { padding: .8rem 1rem; font-size: .88rem; border-bottom: 1px solid var(--cream); color: #444; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafaf8; }
+
+    /* ── FORM ── */
+    .form-card {
+      background: white;
+      border: 1px solid var(--cream);
+      border-radius: 12px;
+      padding: 1.8rem;
+      box-shadow: 0 2px 8px var(--shadow);
+      margin-bottom: 2.5rem;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-group { display: flex; flex-direction: column; gap: .35rem; }
+    .form-group label { font-size: .8rem; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: .06em; }
+    .form-group input, .form-group select {
+      border: 1px solid var(--cream);
+      border-radius: 7px;
+      padding: .6rem .9rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .9rem;
+      color: var(--ink);
+      outline: none;
+      transition: border .2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--sepia); }
+    .btn-submit {
+      margin-top: 1.2rem;
+      background: var(--moss);
+      color: white;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: .92rem;
+      padding: .7rem 2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .btn-submit:hover { opacity: .85; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--ink);
+      color: white;
+      padding: .85rem 1.5rem;
+      border-radius: 10px;
+      font-size: .9rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,.3);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all .3s cubic-bezier(.34,1.56,.64,1);
+      z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── STATUS ── */
+    .api-status { display: flex; align-items: center; gap: .5rem; font-size: .78rem; color: #999; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+    .dot.ok { background: #4caf50; box-shadow: 0 0 0 3px rgba(76,175,80,.2); animation: pulse 2s infinite; }
+    .dot.err { background: var(--rust); }
+
+    /* ── TABS ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── LOADING ── */
+    .loading {
+      text-align: center;
+      padding: 2.5rem;
+      color: #aaa;
+      font-size: .9rem;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--cream);
+      border-top-color: var(--sepia);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto .75rem;
+    }
+
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes pulse  { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+    /* ── SPINE COLORS ── */
+    .spine-c { background: linear-gradient(90deg, var(--rust), #d4602a); }
+    .spine-m { background: linear-gradient(90deg, var(--moss), #5a7e5c); }
+    .spine-s { background: linear-gradient(90deg, var(--sepia), #d4a050); }
+    .spine-b { background: linear-gradient(90deg, #1a5276, #2e86c1); }
+    .spine-p { background: linear-gradient(90deg, #6c3483, #9b59b6); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Biblioteca<span>Net</span></div>
+  <nav>
+    <button class="active" onclick="showTab('catalogo',this)">Catálogo</button>
+    <button onclick="showTab('prestamos',this)">Préstamos</button>
+    <button onclick="showTab('usuarios',this)">Usuarios</button>
+    <button onclick="showTab('agregar',this)">+ Agregar libro</button>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Tu biblioteca,<br><em>siempre disponible.</em></h1>
+    <p>Busca entre miles de títulos, gestiona préstamos y consulta tu historial de lectura desde un solo lugar.</p>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Buscar por título, autor o género…" />
+      <button onclick="buscarLibros()">Buscar</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats" id="statsContainer">
+    <div class="stat-card"><div class="stat-number" id="totalLibros">—</div><div class="stat-label">Libros en catálogo</div></div>
+    <div class="stat-card"><div class="stat-number" id="disponibles">—</div><div class="stat-label">Disponibles</div></div>
+    <div class="stat-card"><div class="stat-number" id="prestados">—</div><div class="stat-label">En préstamo</div></div>
+    <div class="stat-card"><div class="stat-number" id="usuarios">—</div><div class="stat-label">Usuarios activos</div></div>
+  </div>
+
+  <!-- TAB: CATÁLOGO -->
+  <div id="tab-catalogo" class="tab-panel active">
+    <div class="section-title">📖 Catálogo de libros</div>
+    <div class="books-grid" id="booksContainer">
+      <div class="loading"><div class="spinner"></div>Cargando catálogo…</div>
+    </div>
+  </div>
+
+  <!-- TAB: PRÉSTAMOS -->
+  <div id="tab-prestamos" class="tab-panel">
+    <div class="section-title">📋 Préstamos activos</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Usuario</th><th>Libro</th><th>Fecha préstamo</th><th>Vence</th><th>Estado</th></tr>
+        </thead>
+        <tbody id="prestamosBody">
+          <tr><td colspan="5" class="loading">Cargando préstamos…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: USUARIOS -->
+  <div id="tab-usuarios" class="tab-panel">
+    <div class="section-title">👤 Usuarios registrados</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Libros prestados</th></tr>
+        </thead>
+        <tbody id="usuariosBody">
+          <tr><td colspan="4" class="loading">Cargando usuarios…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: AGREGAR LIBRO -->
+  <div id="tab-agregar" class="tab-panel">
+    <div class="section-title">➕ Registrar nuevo libro</div>
+    <div class="form-card">
+      <div class="form-grid">
+        <div class="form-group"><label>Título</label><input type="text" id="f-titulo" placeholder="Ej: Cien años de soledad"/></div>
+        <div class="form-group"><label>Autor</label><input type="text" id="f-autor" placeholder="Ej: Gabriel García Márquez"/></div>
+        <div class="form-group"><label>ISBN</label><input type="text" id="f-isbn" placeholder="Ej: 978-84-376-0494-7"/></div>
+        <div class="form-group"><label>Año</label><input type="number" id="f-anio" placeholder="Ej: 1967" min="1000" max="2025"/></div>
+        <div class="form-group">
+          <label>Género</label>
+          <select id="f-genero">
+            <option value="Novela">Novela</option>
+            <option value="Ciencia Ficción">Ciencia Ficción</option>
+            <option value="Historia">Historia</option>
+            <option value="Filosofía">Filosofía</option>
+            <option value="Poesía">Poesía</option>
+            <option value="Biografía">Biografía</option>
+            <option value="Tecnología">Tecnología</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Editorial</label><input type="text" id="f-editorial" placeholder="Ej: Sudamericana"/></div>
+      </div>
+      <button class="btn-submit" onclick="agregarLibro()">Registrar libro</button>
+    </div>
+  </div>
+
+  <!-- API STATUS -->
+  <div class="api-status">
+    <div class="dot" id="apiDot"></div>
+    <span id="apiStatusText">Conectando con el backend…</span>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const API = 'http://localhost:4000/api';
+  const SPINES = ['spine-c','spine-m','spine-s','spine-b','spine-p'];
+
+  /* ── UTILS ── */
+  function toast(msg, ok = true) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeft = `4px solid ${ok ? '#4caf50' : '#e74c3c'}`;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+  function showTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'prestamos') cargarPrestamos();
+    if (name === 'usuarios')  cargarUsuarios();
+  }
+
+  /* ── STATS ── */
+  async function cargarStats() {
+    try {
+      const r = await fetch(`${API}/stats`);
+      const d = await r.json();
+      document.getElementById('totalLibros').textContent = d.total_libros;
+      document.getElementById('disponibles').textContent = d.disponibles;
+      document.getElementById('prestados').textContent   = d.prestados;
+      document.getElementById('usuarios').textContent    = d.usuarios;
+      document.getElementById('apiDot').className = 'dot ok';
+      document.getElementById('apiStatusText').textContent = 'Backend conectado ✓';
+    } catch {
+      document.getElementById('apiDot').className = 'dot err';
+      document.getElementById('apiStatusText').textContent = 'Backend no disponible – mostrando datos de ejemplo';
+      cargarDatosEjemplo();
+    }
+  }
+
+  /* ── CATÁLOGO ── */
+  async function cargarLibros(q = '') {
+    const url = q ? `${API}/libros?q=${encodeURIComponent(q)}` : `${API}/libros`;
+    try {
+      const r = await fetch(url);
+      const libros = await r.json();
+      renderLibros(libros);
+    } catch { cargarDatosEjemplo(); }
+  }
+
+  function renderLibros(libros) {
+    const c = document.getElementById('booksContainer');
+    if (!libros.length) { c.innerHTML = '<div class="loading">No se encontraron libros.</div>'; return; }
+    c.innerHTML = libros.map((b, i) => `
+      <div class="book-card" style="animation-delay:${i * 0.05}s">
+        <div class="book-spine ${SPINES[i % SPINES.length]}"></div>
+        <div class="book-body">
+          <div class="book-title">${b.titulo}</div>
+          <div class="book-author">${b.autor}</div>
+          <div class="book-meta">
+            <span class="book-genre">${b.genero}</span>
+            <span class="badge ${b.disponible ? 'disponible' : 'prestado'}">${b.disponible ? 'Disponible' : 'Prestado'}</span>
+          </div>
+          <button class="btn-prestamo ${b.disponible ? 'solicitar' : 'no-disponible'}"
+            onclick="${b.disponible ? `solicitarPrestamo(${b.id},'${b.titulo.replace(/'/g,"\\'")}')` : 'void(0)'}">
+            ${b.disponible ? 'Solicitar préstamo' : 'No disponible'}
+          </button>
+        </div>
+      </div>`).join('');
+  }
+
+  function buscarLibros() {
+    const q = document.getElementById('searchInput').value.trim();
+    cargarLibros(q);
+  }
+
+  /* ── PRÉSTAMOS ── */
+  async function cargarPrestamos() {
+    try {
+      const r = await fetch(`${API}/prestamos`);
+      const data = await r.json();
+      const tb = document.getElementById('prestamosBody');
+      if (!data.length) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem">No hay préstamos activos.</td></tr>'; return; }
+      tb.innerHTML = data.map(p => `
+        <tr>
+          <td>${p.usuario_nombre}</td>
+          <td>${p.libro_titulo}</td>
+          <td>${new Date(p.fecha_prestamo).toLocaleDateString('es-CO')}</td>
+          <td>${new Date(p.fecha_vencimiento).toLocaleDateString('es-CO')}</td>
+          <td><span class="badge ${p.activo ? 'prestado' : 'disponible'}">${p.activo ? 'Activo' : 'Devuelto'}</span></td>
+        </tr>`).join('');
+    } catch {
+      document.getElementById('prestamosBody').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem">Backend no disponible</td></tr>';
+    }
+  }
+
+  /* ── USUARIOS ── */
+  async function cargarUsuarios() {
+    try {
+      const r = await fetch(`${API}/usuarios`);
+      const data = await r.json();
+      const tb = document.getElementById('usuariosBody');
+      tb.innerHTML = data.map(u => `
+        <tr>
+          <td><strong>${u.nombre}</strong></td>
+          <td>${u.email}</td>
+          <td>${u.telefono || '—'}</td>
+          <td>${u.prestamos_activos || 0}</td>
+        </tr>`).join('');
+    } catch {
+      document.getElementById('usuariosBody').innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:2rem">Backend no disponible</td></tr>';
+    }
+  }
+
+  /* ── AGREGAR LIBRO ── */
+  async function agregarLibro() {
+    const body = {
+      titulo:    document.getElementById('f-titulo').value.trim(),
+      autor:     document.getElementById('f-autor').value.trim(),
+      isbn:      document.getElementById('f-isbn').value.trim(),
+      anio:      document.getElementById('f-anio').value,
+      genero:    document.getElementById('f-genero').value,
+      editorial: document.getElementById('f-editorial').value.trim(),
+    };
+    if (!body.titulo || !body.autor) { toast('El título y autor son obligatorios.', false); return; }
+    try {
+      const r = await fetch(`${API}/libros`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if (r.ok) {
+        toast(`"${body.titulo}" registrado exitosamente ✓`);
+        ['f-titulo','f-autor','f-isbn','f-anio','f-editorial'].forEach(id => document.getElementById(id).value = '');
+        cargarStats();
+      } else { toast('Error al registrar el libro.', false); }
+    } catch { toast('Sin conexión al backend.', false); }
+  }
+
+  /* ── PRÉSTAMO ── */
+  async function solicitarPrestamo(libroId, titulo) {
+    const usuario = prompt(`Ingresa tu nombre de usuario para solicitar:\n"${titulo}"`);
+    if (!usuario) return;
+    try {
+      const r = await fetch(`${API}/prestamos`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ libro_id: libroId, usuario_nombre: usuario })
+      });
+      const d = await r.json();
+      if (r.ok) { toast(`Préstamo de "${titulo}" registrado ✓`); cargarLibros(); cargarStats(); }
+      else { toast(d.error || 'No se pudo registrar el préstamo.', false); }
+    } catch { toast('Sin conexión al backend.', false); }
+  }
+
+  /* ── DATOS DE EJEMPLO (sin backend) ── */
+  function cargarDatosEjemplo() {
+    document.getElementById('totalLibros').textContent = '8';
+    document.getElementById('disponibles').textContent = '5';
+    document.getElementById('prestados').textContent = '3';
+    document.getElementById('usuarios').textContent = '4';
+    renderLibros([
+      { id:1, titulo:'Cien años de soledad', autor:'Gabriel García Márquez', genero:'Novela', disponible:true },
+      { id:2, titulo:'El nombre de la rosa', autor:'Umberto Eco', genero:'Novela', disponible:false },
+      { id:3, titulo:'Ficciones', autor:'Jorge Luis Borges', genero:'Cuento', disponible:true },
+      { id:4, titulo:'Dune', autor:'Frank Herbert', genero:'Ciencia Ficción', disponible:true },
+      { id:5, titulo:'Sapiens', autor:'Yuval Noah Harari', genero:'Historia', disponible:false },
+      { id:6, titulo:'El Quijote', autor:'Miguel de Cervantes', genero:'Novela', disponible:true },
+      { id:7, titulo:'1984', autor:'George Orwell', genero:'Novela', disponible:false },
+      { id:8, titulo:'Clean Code', autor:'Robert C. Martin', genero:'Tecnología', disponible:true },
+    ]);
+  }
+
+  /* ── ENTER en buscador ── */
+  document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') buscarLibros(); });
+
+  /* ── INIT ── */
+  cargarStats();
+  cargarLibros();
+</script>
+</body>
+</html>

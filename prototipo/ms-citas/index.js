@@ -5,7 +5,7 @@ const fetch = require("node-fetch");
 const app = express();
 app.use(express.json());
 
-// ── Conexión a PostgreSQL ────────────────────────────────────
+//Conexión a PostgreSQL
 const pool = new Pool({
   host:     process.env.DB_HOST     || "localhost",
   port:     parseInt(process.env.DB_PORT) || 5432,
@@ -16,8 +16,6 @@ const pool = new Pool({
 
 const PORT             = process.env.PORT            || 3004;
 const MS_USUARIOS_URL  = process.env.MS_USUARIOS_URL || "http://localhost:3001";
-
-// ── Helpers ──────────────────────────────────────────────────
 
 // Valida que un usuario exista en ms-usuarios (comunicación REST síncrona)
 async function validarUsuario(id) {
@@ -30,12 +28,12 @@ async function validarUsuario(id) {
   }
 }
 
-// ── Health check ─────────────────────────────────────────────
+// Health check básico para monitoreo
 app.get("/health", (req, res) => {
   res.json({ servicio: "ms-citas", estado: "ok", timestamp: new Date() });
 });
 
-// ── GET /citas — listar todas ────────────────────────────────
+// GET /citas — listar todas 
 app.get("/citas", async (req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -52,7 +50,7 @@ app.get("/citas", async (req, res) => {
   }
 });
 
-// ── GET /citas/:id — detalle de una cita ─────────────────────
+//  GET /citas/:id — detalle de una cita 
 app.get("/citas/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -69,7 +67,7 @@ app.get("/citas/:id", async (req, res) => {
   }
 });
 
-// ── POST /citas — agendar cita ───────────────────────────────
+// POST /citas — agendar cita 
 // Valida paciente y médico en ms-usuarios antes de registrar
 app.post("/citas", async (req, res) => {
   const { paciente_id, medico_id, fecha_hora, notas } = req.body;
@@ -89,7 +87,7 @@ app.post("/citas", async (req, res) => {
     return res.status(422).json({ error: `El usuario ${paciente_id} no tiene rol 'paciente'` });
   }
 
-  // ── Validación 2: verificar médico (REST → ms-usuarios) ────
+  // ── Validación 2: verificar médico (REST → ms-usuarios) 
   const medico = await validarUsuario(medico_id);
   if (!medico) {
     return res.status(422).json({
@@ -100,7 +98,7 @@ app.post("/citas", async (req, res) => {
     return res.status(422).json({ error: `El usuario ${medico_id} no tiene rol 'medico'` });
   }
 
-  // ── Verificar que no haya conflicto de horario ──────────────
+  // ── Verificar que no haya conflicto de horario 
   const { rows: conflicto } = await pool.query(`
     SELECT id FROM citas
     WHERE medico_id = $1
@@ -112,7 +110,7 @@ app.post("/citas", async (req, res) => {
     return res.status(409).json({ error: "El médico ya tiene una cita en ese horario" });
   }
 
-  // ── Registrar la cita ───────────────────────────────────────
+  // ── Registrar la cita 
   try {
     const { rows } = await pool.query(
       "INSERT INTO citas (paciente_id, medico_id, fecha_hora, notas) VALUES ($1, $2, $3, $4) RETURNING *",
@@ -131,7 +129,7 @@ app.post("/citas", async (req, res) => {
   }
 });
 
-// ── PATCH /citas/:id/cancelar — cancelar cita ────────────────
+// PATCH /citas/:id/cancelar — cancelar cita 
 app.patch("/citas/:id/cancelar", async (req, res) => {
   try {
     const { rowCount } = await pool.query(
@@ -147,7 +145,7 @@ app.patch("/citas/:id/cancelar", async (req, res) => {
   }
 });
 
-// ── Inicio ───────────────────────────────────────────────────
+// Inicio 
 app.listen(PORT, () => {
   console.log(`[ms-citas] Corriendo en puerto ${PORT}`);
   console.log(`[ms-citas] Conectado a ms-usuarios en ${MS_USUARIOS_URL}`);

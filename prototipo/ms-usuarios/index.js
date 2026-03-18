@@ -4,7 +4,7 @@ const { Pool } = require("pg");
 const app = express();
 app.use(express.json());
 
-// ── Conexión a PostgreSQL ────────────────────────────────────
+// ── Conexión a PostgreSQL
 const pool = new Pool({
   host:     process.env.DB_HOST     || "localhost",
   port:     parseInt(process.env.DB_PORT) || 5432,
@@ -15,12 +15,12 @@ const pool = new Pool({
 
 const PORT = process.env.PORT || 3001;
 
-// ── Health check ─────────────────────────────────────────────
+// ── Health check 
 app.get("/health", (req, res) => {
   res.json({ servicio: "ms-usuarios", estado: "ok", timestamp: new Date() });
 });
 
-// ── GET /usuarios — listar todos ─────────────────────────────
+// ── GET /usuarios — listar todos 
 app.get("/usuarios", async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -32,7 +32,7 @@ app.get("/usuarios", async (req, res) => {
   }
 });
 
-// ── GET /usuarios/:id — buscar por ID ────────────────────────
+// ── GET /usuarios/:id — buscar por ID 
 app.get("/usuarios/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -46,7 +46,7 @@ app.get("/usuarios/:id", async (req, res) => {
   }
 });
 
-// ── POST /usuarios — crear usuario ───────────────────────────
+// ── POST /usuarios — crear usuario 
 app.post("/usuarios", async (req, res) => {
   const { nombre, email, rol } = req.body;
 
@@ -71,7 +71,7 @@ app.post("/usuarios", async (req, res) => {
   }
 });
 
-// ── DELETE /usuarios/:id — desactivar usuario ────────────────
+// ── DELETE /usuarios/:id — desactivar usuario 
 app.delete("/usuarios/:id", async (req, res) => {
   try {
     const { rowCount } = await pool.query(
@@ -85,7 +85,7 @@ app.delete("/usuarios/:id", async (req, res) => {
   }
 });
 
-// ── Inicio ───────────────────────────────────────────────────
+// ── Inicio 
 app.listen(PORT, () => {
   console.log(`[ms-usuarios] Corriendo en puerto ${PORT}`);
 });

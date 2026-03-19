@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
 
-  # ── FRONTEND: Interfaz web con Nginx ──────────────────────────────────────
+  # FRONTEND: Interfaz web con Nginx 
   frontend:
     image: nginx:alpine
     container_name: biblioteca_frontend
@@ -16,7 +16,7 @@ services:
       - biblioteca_net
     restart: unless-stopped
 
-  # ── BACKEND: API REST con Node.js + Express ───────────────────────────────
+  # BACKEND: API REST con Node.js + Express 
   backend:
     image: node:18-alpine
     container_name: biblioteca_backend
@@ -46,7 +46,7 @@ services:
       - biblioteca_net
     restart: unless-stopped
 
-  # ── BASE DE DATOS: PostgreSQL 15 ──────────────────────────────────────────
+  #BASE DE DATOS: PostgreSQL 15 
   base_datos:
     image: postgres:15-alpine
     container_name: biblioteca_db
@@ -69,7 +69,7 @@ services:
       retries: 5
       start_period: 20s
 
-  # ── CACHÉ: Redis 7 ────────────────────────────────────────────────────────
+  # CACHÉ: Redis 7
   cache:
     image: redis:7-alpine
     container_name: biblioteca_cache
@@ -85,12 +85,12 @@ services:
       timeout: 3s
       retries: 3
 
-# ── REDES ────────────────────────────────────────────────────────────────────
+#REDES
 networks:
   biblioteca_net:
     driver: bridge
 
-# ── VOLÚMENES PERSISTENTES ───────────────────────────────────────────────────
+# VOLÚMENES PERSISTENTES 
 volumes:
   datos_postgres:
     driver: local

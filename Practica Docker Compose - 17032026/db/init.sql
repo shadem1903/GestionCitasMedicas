@@ -1,11 +1,6 @@
--- ============================================================
 --  BibliotecaNet – Script de inicialización de la base de datos
---  Motor: PostgreSQL 15
---  Este archivo se ejecuta automáticamente al crear el contenedor
---  gracias al volumen montado en /docker-entrypoint-initdb.d/
--- ============================================================
 
--- ── TABLA: libros ────────────────────────────────────────────
+-- TABLA: libros─
 CREATE TABLE IF NOT EXISTS libros (
     id               SERIAL PRIMARY KEY,
     titulo           VARCHAR(255)  NOT NULL,
@@ -18,7 +13,7 @@ CREATE TABLE IF NOT EXISTS libros (
     fecha_registro   TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
--- ── TABLA: usuarios ──────────────────────────────────────────
+-- TABLA: usuarios
 CREATE TABLE IF NOT EXISTS usuarios (
     id               SERIAL PRIMARY KEY,
     nombre           VARCHAR(150)  NOT NULL,
@@ -27,7 +22,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     fecha_registro   TIMESTAMP     NOT NULL DEFAULT NOW()
 );
 
--- ── TABLA: préstamos ─────────────────────────────────────────
+-- TABLA: préstamos 
 CREATE TABLE IF NOT EXISTS prestamos (
     id                SERIAL PRIMARY KEY,
     usuario_id        INTEGER       NOT NULL REFERENCES usuarios(id),
@@ -38,13 +33,13 @@ CREATE TABLE IF NOT EXISTS prestamos (
     activo            BOOLEAN       NOT NULL DEFAULT true
 );
 
--- ── ÍNDICES para mejorar rendimiento en búsquedas ────────────
+-- ÍNDICES para mejorar rendimiento en búsquedas 
 CREATE INDEX IF NOT EXISTS idx_libros_titulo    ON libros (titulo);
 CREATE INDEX IF NOT EXISTS idx_libros_autor     ON libros (autor);
 CREATE INDEX IF NOT EXISTS idx_libros_disponible ON libros (disponible);
 CREATE INDEX IF NOT EXISTS idx_prestamos_activo ON prestamos (activo);
 
--- ── DATOS DE EJEMPLO ─────────────────────────────────────────
+-- DATOS DE EJEMPLO
 
 -- Libros
 INSERT INTO libros (titulo, autor, isbn, anio_publicacion, genero, editorial, disponible) VALUES

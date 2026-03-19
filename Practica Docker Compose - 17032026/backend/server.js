@@ -1,7 +1,5 @@
-// ============================================================
 //  BibliotecaNet – Backend API REST
 //  Tecnología: Node.js + Express + PostgreSQL + Redis
-// ============================================================
 
 const express = require('express');
 const { Pool } = require('pg');
@@ -11,11 +9,11 @@ const cors    = require('cors');
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
-// ── Middlewares ──────────────────────────────────────────────
+// Middlewares (son necesarios para manejar CORS y parsear JSON)
 app.use(cors());
 app.use(express.json());
 
-// ── Conexión a PostgreSQL ────────────────────────────────────
+// Conexión a PostgreSQL
 const pool = new Pool({
   host:     process.env.DB_HOST     || 'localhost',
   port:     parseInt(process.env.DB_PORT) || 5432,
@@ -24,7 +22,7 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'Segura#2024',
 });
 
-// ── Conexión a Redis (caché) ─────────────────────────────────
+// Conexión a Redis (caché) – se maneja de forma opcional para que el sistema funcione aunque Redis no esté disponible
 let redisClient = null;
 
 async function conectarRedis() {
@@ -50,7 +48,7 @@ async function conectarRedis() {
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+// ── Helpers para manejo de caché en Redis
 async function getCache(key) {
   if (!redisClient) return null;
   try {
@@ -69,7 +67,7 @@ async function delCache(key) {
   try { await redisClient.del(key); } catch {}
 }
 
-// ── RUTAS ────────────────────────────────────────────────────
+// RUTAS
 
 // GET /api/health  — Estado del sistema
 app.get('/api/health', async (req, res) => {

@@ -30,7 +30,7 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - DB_HOST=base_datos
-      - DB_PORT=5432
+      - DB_PORT=3306
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -46,24 +46,23 @@ services:
       - biblioteca_net
     restart: unless-stopped
 
-  #BASE DE DATOS: PostgreSQL 15 
+  #BASE DE DATOS: MySQL 8.0 
   base_datos:
-    image: postgres:15-alpine
+    image: mysql:8.0
     container_name: biblioteca_db
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
     volumes:
-      - datos_postgres:/var/lib/postgresql/data
+      - datos_mysql:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "5432:5432"
+      - "3307:3306"
     networks:
       - biblioteca_net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -92,5 +91,5 @@ networks:
 
 # VOLÚMENES PERSISTENTES 
 volumes:
-  datos_postgres:
+  datos_mysql:
     driver: local

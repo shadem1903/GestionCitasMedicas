@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -- base de datos para el sistema de biblioteca
 -- se ejecuta automaticamente cuando se crea el contenedor
 
@@ -34,6 +35,52 @@ CREATE TABLE prestamos (
 );
 
 -- datos de ejemplo
+=======
+-- Crear base de datos
+CREATE DATABASE IF NOT EXISTS biblioteca_db;
+USE biblioteca_db;
+
+-- TABLA: libros
+CREATE TABLE IF NOT EXISTS libros (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    autor VARCHAR(255) NOT NULL,
+    isbn VARCHAR(20) UNIQUE,
+    anio_publicacion INT,
+    genero VARCHAR(100),
+    editorial VARCHAR(150),
+    disponible BOOLEAN NOT NULL DEFAULT true,
+    fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLA: usuarios
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    email VARCHAR(200) UNIQUE NOT NULL,
+    telefono VARCHAR(20),
+    fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLA: prestamos
+CREATE TABLE IF NOT EXISTS prestamos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    libro_id INT NOT NULL,
+    fecha_prestamo DATE NOT NULL DEFAULT (CURRENT_DATE),
+    fecha_vencimiento DATE NOT NULL,
+    fecha_devolucion DATE,
+    activo BOOLEAN NOT NULL DEFAULT true,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    FOREIGN KEY (libro_id) REFERENCES libros(id)
+);
+
+-- ÍNDICES
+CREATE INDEX idx_libros_titulo ON libros (titulo);
+CREATE INDEX idx_libros_autor ON libros (autor);
+CREATE INDEX idx_libros_disponible ON libros (disponible);
+CREATE INDEX idx_prestamos_activo ON prestamos (activo);
+>>>>>>> origin/JosueRivera
 
 INSERT INTO libros (titulo, autor, isbn, anio_publicacion, genero, editorial) VALUES
     ('Cien años de soledad',     'Gabriel García Márquez', '978-0-06-088328-7', 1967, 'Novela',          'Harper Perennial'),
@@ -45,6 +92,7 @@ INSERT INTO libros (titulo, autor, isbn, anio_publicacion, genero, editorial) VA
     ('1984',                     'George Orwell',          '978-0-451-52493-5', 1949, 'Novela',          'Signet Classic'),
     ('Clean Code',               'Robert C. Martin',       '978-0-13-235088-4', 2008, 'Tecnología',      'Prentice Hall');
 
+<<<<<<< HEAD
 INSERT INTO usuarios (nombre, email, telefono) VALUES
     ('Laura Morales',   'laura.morales@email.com',   '3001234567'),
     ('Carlos Herrera',  'carlos.herrera@email.com',  '3109876543'),
@@ -59,3 +107,67 @@ VALUES (1, 2, CURRENT_DATE - 5, CURRENT_DATE + 10, true),
 
 -- marcar esos libros como no disponibles
 UPDATE libros SET disponible = false WHERE id IN (2, 5, 7);
+=======
+-- Libros
+INSERT IGNORE INTO libros (titulo, autor, isbn, anio_publicacion, genero, editorial, disponible) VALUES
+('Cien años de soledad','Gabriel García Márquez','978-0-06-088328-7',1967,'Novela','Harper Perennial',true),
+('El nombre de la rosa','Umberto Eco','978-0-15-144647-6',1980,'Novela','Harcourt',false),
+('Ficciones','Jorge Luis Borges','978-0-8021-3030-5',1944,'Cuento','Grove Press',true),
+('Dune','Frank Herbert','978-0-441-17271-9',1965,'Ciencia Ficción','Ace Books',true),
+('Sapiens','Yuval Noah Harari','978-0-06-231609-7',2011,'Historia','Harper Collins',false),
+('Don Quijote de la Mancha','Miguel de Cervantes','978-0-06-093434-9',1605,'Novela','Harper Collins',true),
+('1984','George Orwell','978-0-451-52493-5',1949,'Novela','Signet Classic',false),
+('Clean Code','Robert C. Martin','978-0-13-235088-4',2008,'Tecnología','Prentice Hall',true),
+('El principito','Antoine de Saint-Exupéry','978-0-15-601219-5',1943,'Novela','Harcourt',true),
+('Crimen y castigo','Fiódor Dostoyevski','978-0-14-044913-6',1866,'Novela','Penguin Classics',true);
+
+-- Usuarios
+INSERT IGNORE INTO usuarios (nombre, email, telefono) VALUES
+('Laura Morales','laura.morales@email.com','3001234567'),
+('Carlos Herrera','carlos.herrera@email.com','3109876543'),
+('Sofía Quintero','sofia.quintero@email.com','3205551234'),
+('Andrés Castillo','andres.castillo@email.com','3157778899');
+
+-- Préstamos
+INSERT INTO prestamos (usuario_id, libro_id, fecha_prestamo, fecha_vencimiento, activo)
+SELECT u.id, l.id,
+       DATE_SUB(CURDATE(), INTERVAL 5 DAY),
+       DATE_ADD(CURDATE(), INTERVAL 10 DAY),
+       true
+FROM usuarios u, libros l
+WHERE u.email = 'laura.morales@email.com'
+  AND l.titulo = 'El nombre de la rosa'
+  AND NOT EXISTS (
+      SELECT 1 FROM prestamos WHERE libro_id = l.id AND activo = true
+  );
+
+INSERT INTO prestamos (usuario_id, libro_id, fecha_prestamo, fecha_vencimiento, activo)
+SELECT u.id, l.id,
+       DATE_SUB(CURDATE(), INTERVAL 3 DAY),
+       DATE_ADD(CURDATE(), INTERVAL 12 DAY),
+       true
+FROM usuarios u, libros l
+WHERE u.email = 'carlos.herrera@email.com'
+  AND l.titulo = 'Sapiens'
+  AND NOT EXISTS (
+      SELECT 1 FROM prestamos WHERE libro_id = l.id AND activo = true
+  );
+
+INSERT INTO prestamos (usuario_id, libro_id, fecha_prestamo, fecha_vencimiento, activo)
+SELECT u.id, l.id,
+       DATE_SUB(CURDATE(), INTERVAL 8 DAY),
+       DATE_ADD(CURDATE(), INTERVAL 7 DAY),
+       true
+FROM usuarios u, libros l
+WHERE u.email = 'sofia.quintero@email.com'
+  AND l.titulo = '1984'
+  AND NOT EXISTS (
+      SELECT 1 FROM prestamos WHERE libro_id = l.id AND activo = true
+  );
+
+-- Confirmación
+SELECT 
+  '✅ BibliotecaNet DB inicializada correctamente' AS mensaje,
+  (SELECT COUNT(*) FROM libros) AS total_libros,
+  (SELECT COUNT(*) FROM usuarios) AS total_usuarios;
+>>>>>>> origin/JosueRivera

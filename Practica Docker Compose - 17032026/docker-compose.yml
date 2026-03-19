@@ -27,33 +27,56 @@ services:
     environment:
       - PORT=4000
       - DB_HOST=base_datos
+<<<<<<< HEAD
       - DB_PORT=5432
       - DB_NAME=biblioteca_db
       - DB_USER=admin_biblioteca
       - DB_PASSWORD=Segura#2024
+=======
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+>>>>>>> origin/JosueRivera
     depends_on:
       - base_datos
     networks:
       - biblioteca_net
     restart: unless-stopped
 
+<<<<<<< HEAD
+=======
+  #BASE DE DATOS: MySQL 8.0 
+>>>>>>> origin/JosueRivera
   base_datos:
-    image: postgres:15-alpine
+    image: mysql:8.0
     container_name: biblioteca_db
     environment:
+<<<<<<< HEAD
       - POSTGRES_DB=biblioteca_db
       - POSTGRES_USER=admin_biblioteca
       - POSTGRES_PASSWORD=Segura#2024
+=======
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+>>>>>>> origin/JosueRivera
     volumes:
-      - datos_postgres:/var/lib/postgresql/data
+      - datos_mysql:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "5432:5432"
+      - "3307:3306"
     networks:
       - biblioteca_net
     restart: unless-stopped
     healthcheck:
+<<<<<<< HEAD
       test: ["CMD-SHELL", "pg_isready -U admin_biblioteca -d biblioteca_db"]
+=======
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+>>>>>>> origin/JosueRivera
       interval: 10s
       timeout: 5s
       retries: 5
@@ -73,5 +96,5 @@ networks:
     driver: bridge
 
 volumes:
-  datos_postgres:
+  datos_mysql:
     driver: local

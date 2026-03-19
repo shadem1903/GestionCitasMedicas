@@ -527,43 +527,53 @@
 
   /* ── PRÉSTAMOS ── */
   async function cargarPrestamos() {
-    try {
-      const r = await fetch(`${API}/prestamos`);
-      const data = await r.json();
-      const tb = document.getElementById('prestamosBody');
-      if (!data.length) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem">No hay préstamos activos.</td></tr>'; return; }
-      tb.innerHTML = data.map(p => `
-        <tr>
-          <td>${p.usuario_nombre}</td>
-          <td>${p.libro_titulo}</td>
-          <td>${new Date(p.fecha_prestamo).toLocaleDateString('es-CO')}</td>
-          <td>${new Date(p.fecha_vencimiento).toLocaleDateString('es-CO')}</td>
-          <td><span class="badge ${p.activo ? 'prestado' : 'disponible'}">${p.activo ? 'Activo' : 'Devuelto'}</span></td>
-        </tr>`).join('');
-    } catch {
-      document.getElementById('prestamosBody').innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem">Backend no disponible</td></tr>';
+  try {
+    const r = await fetch(`${API}/prestamos`);
+    const data = await r.json();
+    const tb = document.getElementById('prestamosBody');
+
+    if (!data.length) {
+      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem">No hay préstamos activos.</td></tr>';
+      return;
     }
+
+    tb.innerHTML = data.map(p => `
+      <tr>
+        <td>${p.usuario}</td>
+        <td>${p.libro}</td>
+        <td>${new Date(p.fecha_prestamo).toLocaleDateString('es-CO')}</td>
+        <td>${new Date(p.fecha_vencimiento).toLocaleDateString('es-CO')}</td>
+        <td><span class="badge prestado">Activo</span></td>
+      </tr>
+    `).join('');
+
+  } catch {
+    document.getElementById('prestamosBody').innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:2rem">Backend no disponible</td></tr>';
   }
+}
 
   /* ── USUARIOS ── */
   async function cargarUsuarios() {
-    try {
-      const r = await fetch(`${API}/usuarios`);
-      const data = await r.json();
-      const tb = document.getElementById('usuariosBody');
-      tb.innerHTML = data.map(u => `
-        <tr>
-          <td><strong>${u.nombre}</strong></td>
-          <td>${u.email}</td>
-          <td>${u.telefono || '—'}</td>
-          <td>${u.prestamos_activos || 0}</td>
-        </tr>`).join('');
-    } catch {
-      document.getElementById('usuariosBody').innerHTML =
-        '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:2rem">Backend no disponible</td></tr>';
-    }
+  try {
+    const r = await fetch(`${API}/usuarios`);
+    const data = await r.json();
+    const tb = document.getElementById('usuariosBody');
+
+    tb.innerHTML = data.map(u => `
+      <tr>
+        <td><strong>${u.nombre}</strong></td>
+        <td>${u.email}</td>
+        <td>${u.telefono || '—'}</td>
+        <td>${u.prestamos}</td>
+      </tr>
+    `).join('');
+
+  } catch {
+    document.getElementById('usuariosBody').innerHTML =
+      '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:2rem">Backend no disponible</td></tr>';
   }
+}
 
   /* ── AGREGAR LIBRO ── */
   async function agregarLibro() {
@@ -571,7 +581,7 @@
       titulo:    document.getElementById('f-titulo').value.trim(),
       autor:     document.getElementById('f-autor').value.trim(),
       isbn:      document.getElementById('f-isbn').value.trim(),
-      anio:      document.getElementById('f-anio').value,
+      anio_publicacion: document.getElementById('f-anio').value,
       genero:    document.getElementById('f-genero').value,
       editorial: document.getElementById('f-editorial').value.trim(),
     };

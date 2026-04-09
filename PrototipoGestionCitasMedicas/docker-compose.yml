@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
 
-  # ─── Base de datos compartida (dev) ───────────────────────
+  # ─── Base de datos compartida (desarrollo) ───────────────────
   postgres:
     image: postgres:15-alpine
     container_name: citas_postgres
@@ -21,8 +19,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - citas_net
 
-  # ─── MS-1: Gestión de Usuarios ────────────────────────────
+  # ─── MS-1: Gestión de Usuarios ───────────────────────────────
   ms-usuarios:
     build: ./ms-usuarios
     container_name: ms_usuarios
@@ -39,8 +39,58 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - citas_net
 
-  # ─── MS-4: Gestión de Citas ───────────────────────────────
+  # ─── MS-7: Especialidades Médicas ────────────────────────────
+  ms-especialidades:
+    build: ./ms-especialidades
+    container_name: ms_especialidades
+    restart: unless-stopped
+    environment:
+      PORT: 3007
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: citas_db
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - citas_net
+
+  # ─── MS-3: Disponibilidad Médica ─────────────────────────────
+  # Consume MS-1 (validar médico) y MS-7 (nombre de especialidad)
+  ms-disponibilidad:
+    build: ./ms-disponibilidad
+    container_name: ms_disponibilidad
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: citas_db
+      MS_USUARIOS_URL: http://ms-usuarios:3001
+      MS_ESPECIALIDADES_URL: http://ms-especialidades:3007
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ms-usuarios:
+        condition: service_started
+      ms-especialidades:
+        condition: service_started
+    networks:
+      - citas_net
+
+  # ─── MS-4: Gestión de Citas ───────────────────────────────────
+  # Consume MS-1 (validar paciente/médico) y MS-3 (verificar disponibilidad)
   ms-citas:
     build: ./ms-citas
     container_name: ms_citas
@@ -53,11 +103,37 @@ services:
       DB_PASSWORD: admin123
       DB_NAME: citas_db
       MS_USUARIOS_URL: http://ms-usuarios:3001
+      MS_DISPONIBILIDAD_URL: http://ms-disponibilidad:3003
     ports:
       - "3004:3004"
     depends_on:
       postgres:
         condition: service_healthy
+      ms-usuarios:
+        condition: service_started
+      ms-disponibilidad:
+        condition: service_started
+    networks:
+      - citas_net
+
+  # ─── Frontend (nginx sirve los archivos estáticos) ───────────
+  ms-frontend:
+    build: ./ms-frontend
+    container_name: ms_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - ms-usuarios
+      - ms-disponibilidad
+      - ms-citas
+      - ms-especialidades
+    networks:
+      - citas_net
+
+networks:
+  citas_net:
+    driver: bridge
 
 volumes:
   postgres_data:

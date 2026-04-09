@@ -1,7 +1,7 @@
 {
-  "name": "ms-usuarios",
+  "name": "ms-especialidades",
   "version": "1.0.0",
-  "description": "MS-1 Gestión de Usuarios — Plataforma de Citas Médicas",
+  "description": "MS-7 Especialidades Médicas — Plataforma de Citas Médicas",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

@@ -1,7 +1,7 @@
 {
-  "name": "ms-usuarios",
+  "name": "ms-disponibilidad",
   "version": "1.0.0",
-  "description": "MS-1 Gestión de Usuarios — Plataforma de Citas Médicas",
+  "description": "MS-3 Disponibilidad Médica — Plataforma de Citas Médicas",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,6 +9,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
     "pg": "^8.11.3"
   }
 }

@@ -1,0 +1,24 @@
+# Variables de entorno — NUNCA subir credenciales reales
+.env
+*.env.local
+
+# Dependencias Node.js
+**/node_modules/
+
+# Datos de Docker (volúmenes locales)
+mysql_data/
+postgres_data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistemas operativos
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user

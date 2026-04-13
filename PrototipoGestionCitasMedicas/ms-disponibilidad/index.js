@@ -1,23 +1,25 @@
 const express = require("express");
-const { Pool } = require("pg");
-const fetch = require("node-fetch");
-const cors = require("cors");
+const mysql   = require("mysql2/promise");
+const fetch   = require("node-fetch");
+const cors    = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── Conexión a PostgreSQL usando variables de entorno
-const pool = new Pool({
-  host:     process.env.DB_HOST     || "localhost",
-  port:     parseInt(process.env.DB_PORT) || 5432,
-  user:     process.env.DB_USER     || "admin",
-  password: process.env.DB_PASSWORD || "admin123",
-  database: process.env.DB_NAME     || "citas_db",
+// ── Pool de conexión a MySQL usando variables de entorno
+const pool = mysql.createPool({
+  host:             process.env.DB_HOST     || "localhost",
+  port:             parseInt(process.env.DB_PORT) || 3306,
+  user:             process.env.DB_USER     || "admin",
+  password:         process.env.DB_PASSWORD || "admin123",
+  database:         process.env.DB_NAME     || "citas_db",
+  waitForConnections: true,
+  connectionLimit:  10,
 });
 
-const PORT               = process.env.PORT                || 3003;
-const MS_USUARIOS_URL    = process.env.MS_USUARIOS_URL     || "http://localhost:3001";
+const PORT                  = process.env.PORT                  || 3003;
+const MS_USUARIOS_URL       = process.env.MS_USUARIOS_URL       || "http://localhost:3001";
 const MS_ESPECIALIDADES_URL = process.env.MS_ESPECIALIDADES_URL || "http://localhost:3007";
 
 // Valida que el usuario exista en ms-usuarios y tenga rol médico
@@ -53,26 +55,25 @@ app.get("/disponibilidad", async (req, res) => {
   const { medico_id, fecha } = req.query;
 
   try {
-    let query = `
-      SELECT d.id, d.medico_id, d.especialidad_id, d.fecha,
-             d.hora_inicio, d.hora_fin, d.activo, d.creado_en
-      FROM disponibilidad d
-      WHERE d.activo = TRUE
+    let sql = `
+      SELECT id, medico_id, especialidad_id, fecha,
+             hora_inicio, hora_fin, activo, creado_en
+      FROM disponibilidad
+      WHERE activo = TRUE
     `;
     const params = [];
 
     if (medico_id) {
+      sql += " AND medico_id = ?";
       params.push(medico_id);
-      query += ` AND d.medico_id = $${params.length}`;
     }
     if (fecha) {
+      sql += " AND fecha = ?";
       params.push(fecha);
-      query += ` AND d.fecha = $${params.length}`;
     }
+    sql += " ORDER BY fecha, hora_inicio";
 
-    query += " ORDER BY d.fecha, d.hora_inicio";
-
-    const { rows } = await pool.query(query, params);
+    const [rows] = await pool.execute(sql, params);
     res.json({ total: rows.length, datos: rows });
   } catch (err) {
     res.status(500).json({ error: "Error al consultar disponibilidad", detalle: err.message });
@@ -91,15 +92,16 @@ app.get("/disponibilidad/verificar", async (req, res) => {
   }
 
   try {
-    const { rows } = await pool.query(`
+    // Verificar si la hora cae dentro de algún bloque activo del médico
+    const [rows] = await pool.execute(`
       SELECT id, hora_inicio, hora_fin, especialidad_id
       FROM disponibilidad
-      WHERE medico_id = $1
-        AND fecha = $2
-        AND hora_inicio <= $3::time
-        AND hora_fin > $3::time
+      WHERE medico_id = ?
+        AND fecha = ?
+        AND hora_inicio <= ?
+        AND hora_fin > ?
         AND activo = TRUE
-    `, [medico_id, fecha, hora]);
+    `, [medico_id, fecha, hora, hora]);
 
     if (rows.length === 0) {
       return res.json({
@@ -117,11 +119,13 @@ app.get("/disponibilidad/verificar", async (req, res) => {
 // ── GET /disponibilidad/:id — detalle de un bloque
 app.get("/disponibilidad/:id", async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      "SELECT * FROM disponibilidad WHERE id = $1",
+    const [rows] = await pool.execute(
+      "SELECT * FROM disponibilidad WHERE id = ?",
       [req.params.id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Bloque de disponibilidad no encontrado" });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Bloque de disponibilidad no encontrado" });
+    }
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -139,7 +143,6 @@ app.post("/disponibilidad", async (req, res) => {
       error: "Campos requeridos: medico_id, fecha, hora_inicio, hora_fin"
     });
   }
-
   if (hora_inicio >= hora_fin) {
     return res.status(400).json({ error: "hora_inicio debe ser anterior a hora_fin" });
   }
@@ -152,14 +155,15 @@ app.post("/disponibilidad", async (req, res) => {
     });
   }
 
-  // ── Verificar solapamiento de horarios para el mismo médico y fecha
-  const { rows: solapamiento } = await pool.query(`
+  // ── Verificar solapamiento de horarios (MySQL no tiene OVERLAPS, se hace manual)
+  const [solapamiento] = await pool.execute(`
     SELECT id FROM disponibilidad
-    WHERE medico_id = $1
-      AND fecha = $2
+    WHERE medico_id = ?
+      AND fecha = ?
       AND activo = TRUE
-      AND (hora_inicio, hora_fin) OVERLAPS ($3::time, $4::time)
-  `, [medico_id, fecha, hora_inicio, hora_fin]);
+      AND hora_inicio < ?
+      AND hora_fin > ?
+  `, [medico_id, fecha, hora_fin, hora_inicio]);
 
   if (solapamiento.length > 0) {
     return res.status(409).json({
@@ -168,15 +172,18 @@ app.post("/disponibilidad", async (req, res) => {
   }
 
   try {
-    const { rows } = await pool.query(
+    const [result] = await pool.execute(
       `INSERT INTO disponibilidad (medico_id, especialidad_id, fecha, hora_inicio, hora_fin)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+       VALUES (?, ?, ?, ?, ?)`,
       [medico_id, especialidad_id || null, fecha, hora_inicio, hora_fin]
     );
-
+    const [rows] = await pool.execute(
+      "SELECT * FROM disponibilidad WHERE id = ?",
+      [result.insertId]
+    );
     const bloque = rows[0];
 
-    // Enriquecer respuesta con datos de especialidad (si fue provista)
+    // Enriquecer respuesta con nombre de especialidad (si fue provista)
     let especialidad = null;
     if (especialidad_id) {
       especialidad = await obtenerEspecialidad(especialidad_id);
@@ -186,9 +193,9 @@ app.post("/disponibilidad", async (req, res) => {
       mensaje: "Bloque de disponibilidad registrado",
       disponibilidad: {
         ...bloque,
-        medico: medico.nombre,
-        especialidad: especialidad ? especialidad.nombre : null
-      }
+        medico:      medico.nombre,
+        especialidad: especialidad ? especialidad.nombre : null,
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -198,11 +205,13 @@ app.post("/disponibilidad", async (req, res) => {
 // ── DELETE /disponibilidad/:id — desactivar bloque
 app.delete("/disponibilidad/:id", async (req, res) => {
   try {
-    const { rowCount } = await pool.query(
-      "UPDATE disponibilidad SET activo = FALSE WHERE id = $1",
+    const [result] = await pool.execute(
+      "UPDATE disponibilidad SET activo = FALSE WHERE id = ?",
       [req.params.id]
     );
-    if (rowCount === 0) return res.status(404).json({ error: "Bloque de disponibilidad no encontrado" });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Bloque de disponibilidad no encontrado" });
+    }
     res.json({ mensaje: "Bloque de disponibilidad eliminado correctamente" });
   } catch (err) {
     res.status(500).json({ error: err.message });

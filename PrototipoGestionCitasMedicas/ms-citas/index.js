@@ -1,19 +1,21 @@
 const express = require("express");
-const { Pool } = require("pg");
-const fetch = require("node-fetch");
-const cors = require("cors");
+const mysql   = require("mysql2/promise");
+const fetch   = require("node-fetch");
+const cors    = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ── Conexión a PostgreSQL usando variables de entorno
-const pool = new Pool({
-  host:     process.env.DB_HOST     || "localhost",
-  port:     parseInt(process.env.DB_PORT) || 5432,
-  user:     process.env.DB_USER     || "admin",
-  password: process.env.DB_PASSWORD || "admin123",
-  database: process.env.DB_NAME     || "citas_db",
+// ── Pool de conexión a MySQL usando variables de entorno
+const pool = mysql.createPool({
+  host:             process.env.DB_HOST     || "localhost",
+  port:             parseInt(process.env.DB_PORT) || 3306,
+  user:             process.env.DB_USER     || "admin",
+  password:         process.env.DB_PASSWORD || "admin123",
+  database:         process.env.DB_NAME     || "citas_db",
+  waitForConnections: true,
+  connectionLimit:  10,
 });
 
 const PORT                  = process.env.PORT                  || 3004;
@@ -34,10 +36,9 @@ async function validarUsuario(id) {
 // Verifica disponibilidad del médico en ms-disponibilidad (comunicación REST síncrona)
 async function verificarDisponibilidad(medico_id, fecha_hora) {
   try {
-    // Extraer fecha y hora desde el timestamp (ISO 8601 o "YYYY-MM-DD HH:MM")
-    const dt = new Date(fecha_hora);
-    const fecha = dt.toISOString().split("T")[0];
-    const hora  = dt.toTimeString().substring(0, 5); // "HH:MM"
+    const dt    = new Date(fecha_hora);
+    const fecha = dt.toISOString().split("T")[0];            // YYYY-MM-DD
+    const hora  = dt.toTimeString().substring(0, 5);         // HH:MM
 
     const url = `${MS_DISPONIBILIDAD_URL}/disponibilidad/verificar?medico_id=${medico_id}&fecha=${fecha}&hora=${hora}`;
     const res = await fetch(url);
@@ -56,7 +57,7 @@ app.get("/health", (req, res) => {
 // ── GET /citas — listar todas
 app.get("/citas", async (req, res) => {
   try {
-    const { rows } = await pool.query(`
+    const [rows] = await pool.execute(`
       SELECT c.id, c.fecha_hora, c.estado, c.notas,
              p.nombre AS paciente, m.nombre AS medico
       FROM citas c
@@ -73,12 +74,12 @@ app.get("/citas", async (req, res) => {
 // ── GET /citas/:id — detalle de una cita
 app.get("/citas/:id", async (req, res) => {
   try {
-    const { rows } = await pool.query(`
+    const [rows] = await pool.execute(`
       SELECT c.*, p.nombre AS paciente, m.nombre AS medico
       FROM citas c
       JOIN usuarios p ON c.paciente_id = p.id
       JOIN usuarios m ON c.medico_id   = m.id
-      WHERE c.id = $1
+      WHERE c.id = ?
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Cita no encontrada" });
     res.json(rows[0]);
@@ -88,7 +89,7 @@ app.get("/citas/:id", async (req, res) => {
 });
 
 // ── POST /citas — agendar cita
-// Flujo de validación:
+// Flujo:
 //   1. Verifica paciente en ms-usuarios  (REST → MS-1)
 //   2. Verifica médico en ms-usuarios    (REST → MS-1)
 //   3. Verifica disponibilidad del médico (REST → MS-3)
@@ -128,17 +129,22 @@ app.post("/citas", async (req, res) => {
   if (!disponibilidad.disponible) {
     return res.status(422).json({
       error: "El médico no está disponible en ese horario.",
-      detalle: disponibilidad.razon
+      detalle: disponibilidad.razon,
     });
   }
 
   // ── Paso 4: verificar conflicto de horario en BD local
-  const { rows: conflicto } = await pool.query(`
+  const fechaMySQL = new Date(fecha_hora)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " "); // DATETIME formato MySQL
+
+  const [conflicto] = await pool.execute(`
     SELECT id FROM citas
-    WHERE medico_id = $1
-      AND fecha_hora = $2
+    WHERE medico_id = ?
+      AND fecha_hora = ?
       AND estado = 'programada'
-  `, [medico_id, fecha_hora]);
+  `, [medico_id, fechaMySQL]);
 
   if (conflicto.length > 0) {
     return res.status(409).json({ error: "El médico ya tiene una cita registrada en ese horario" });
@@ -146,17 +152,21 @@ app.post("/citas", async (req, res) => {
 
   // ── Paso 5: registrar la cita
   try {
-    const { rows } = await pool.query(
-      "INSERT INTO citas (paciente_id, medico_id, fecha_hora, notas) VALUES ($1, $2, $3, $4) RETURNING *",
-      [paciente_id, medico_id, fecha_hora, notas || null]
+    const [result] = await pool.execute(
+      "INSERT INTO citas (paciente_id, medico_id, fecha_hora, notas) VALUES (?, ?, ?, ?)",
+      [paciente_id, medico_id, fechaMySQL, notas || null]
+    );
+    const [rows] = await pool.execute(
+      "SELECT * FROM citas WHERE id = ?",
+      [result.insertId]
     );
     res.status(201).json({
       mensaje: "Cita agendada correctamente",
       cita: {
         ...rows[0],
         paciente: paciente.nombre,
-        medico:   medico.nombre
-      }
+        medico:   medico.nombre,
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -166,11 +176,11 @@ app.post("/citas", async (req, res) => {
 // ── PATCH /citas/:id/cancelar — cancelar cita
 app.patch("/citas/:id/cancelar", async (req, res) => {
   try {
-    const { rowCount } = await pool.query(
-      "UPDATE citas SET estado = 'cancelada' WHERE id = $1 AND estado = 'programada'",
+    const [result] = await pool.execute(
+      "UPDATE citas SET estado = 'cancelada' WHERE id = ? AND estado = 'programada'",
       [req.params.id]
     );
-    if (rowCount === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Cita no encontrada o ya no está programada" });
     }
     res.json({ mensaje: "Cita cancelada correctamente" });
@@ -179,14 +189,14 @@ app.patch("/citas/:id/cancelar", async (req, res) => {
   }
 });
 
-// ── PATCH /citas/:id/completar — marcar cita como completada
+// ── PATCH /citas/:id/completar — marcar como completada
 app.patch("/citas/:id/completar", async (req, res) => {
   try {
-    const { rowCount } = await pool.query(
-      "UPDATE citas SET estado = 'completada' WHERE id = $1 AND estado = 'programada'",
+    const [result] = await pool.execute(
+      "UPDATE citas SET estado = 'completada' WHERE id = ? AND estado = 'programada'",
       [req.params.id]
     );
-    if (rowCount === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Cita no encontrada o ya no está programada" });
     }
     res.json({ mensaje: "Cita marcada como completada" });

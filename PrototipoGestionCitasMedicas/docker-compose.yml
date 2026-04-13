@@ -1,24 +1,25 @@
 services:
 
-  # ─── Base de datos compartida (desarrollo) ───────────────────
-  postgres:
-    image: postgres:15-alpine
-    container_name: citas_postgres
+  # ─── Base de datos MySQL ──────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: citas_mysql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: citas_db
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin123
+      MYSQL_DATABASE: citas_db
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d citas_db"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uadmin", "-padmin123"]
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - citas_net
 
@@ -29,15 +30,15 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3001
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
       DB_NAME: citas_db
     ports:
       - "3001:3001"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     networks:
       - citas_net
@@ -49,15 +50,15 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3007
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
       DB_NAME: citas_db
     ports:
       - "3007:3007"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     networks:
       - citas_net
@@ -70,8 +71,8 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3003
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
       DB_NAME: citas_db
@@ -80,7 +81,7 @@ services:
     ports:
       - "3003:3003"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       ms-usuarios:
         condition: service_started
@@ -97,8 +98,8 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3004
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_HOST: mysql
+      DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
       DB_NAME: citas_db
@@ -107,7 +108,7 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       ms-usuarios:
         condition: service_started
@@ -136,4 +137,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  mysql_data:

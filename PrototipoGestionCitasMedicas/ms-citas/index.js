@@ -49,6 +49,22 @@ async function verificarDisponibilidad(medico_id, fecha_hora) {
   }
 }
 
+// ── GET / — información del servicio
+app.get("/", (req, res) => {
+  res.json({
+    servicio: "ms-citas",
+    version: "1.0.0",
+    endpoints: [
+      "GET   /health",
+      "GET   /citas",
+      "GET   /citas/:id",
+      "POST  /citas",
+      "PATCH /citas/:id/cancelar",
+      "PATCH /citas/:id/completar",
+    ],
+  });
+});
+
 // ── GET /health
 app.get("/health", (req, res) => {
   res.json({ servicio: "ms-citas", estado: "ok", timestamp: new Date() });

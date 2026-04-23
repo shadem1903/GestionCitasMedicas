@@ -19,6 +19,22 @@ const pool = mysql.createPool({
 
 const PORT = process.env.PORT || 3007;
 
+// ── GET / — información del servicio
+app.get("/", (req, res) => {
+  res.json({
+    servicio: "ms-especialidades",
+    version: "1.0.0",
+    endpoints: [
+      "GET  /health",
+      "GET  /especialidades",
+      "GET  /especialidades/:id",
+      "POST /especialidades",
+      "PUT  /especialidades/:id",
+      "DELETE /especialidades/:id",
+    ],
+  });
+});
+
 // ── GET /health
 app.get("/health", (req, res) => {
   res.json({ servicio: "ms-especialidades", estado: "ok", timestamp: new Date() });

@@ -45,6 +45,22 @@ async function obtenerEspecialidad(especialidad_id) {
   }
 }
 
+// ── GET / — información del servicio
+app.get("/", (req, res) => {
+  res.json({
+    servicio: "ms-disponibilidad",
+    version: "1.0.0",
+    endpoints: [
+      "GET  /health",
+      "GET  /disponibilidad",
+      "GET  /disponibilidad/verificar?medico_id=&fecha=&hora=",
+      "GET  /disponibilidad/:id",
+      "POST /disponibilidad",
+      "DELETE /disponibilidad/:id",
+    ],
+  });
+});
+
 // ── GET /health
 app.get("/health", (req, res) => {
   res.json({ servicio: "ms-disponibilidad", estado: "ok", timestamp: new Date() });

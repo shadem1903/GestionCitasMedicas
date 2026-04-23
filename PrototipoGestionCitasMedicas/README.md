@@ -148,6 +148,7 @@ PrototipoGestionCitasMedicas/
 
 | Método | Ruta | Descripción | Body requerido |
 |---|---|---|---|
+| `GET` | `/` | Info del servicio y lista de endpoints | — |
 | `GET` | `/health` | Estado del servicio | — |
 | `GET` | `/usuarios` | Listar todos los usuarios | — |
 | `GET` | `/usuarios/:id` | Obtener usuario por ID | — |
@@ -157,11 +158,26 @@ PrototipoGestionCitasMedicas/
 
 **Roles válidos:** `paciente` · `medico` · `admin`
 
-Ejemplo — Crear usuario:
+Ejemplos:
 ```bash
+# Ver info del servicio
+curl http://localhost:3001/
+
+# Listar usuarios
+curl http://localhost:3001/usuarios
+
+# Crear usuario
 curl -X POST http://localhost:3001/usuarios \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Carlos Ruiz", "email": "carlos@demo.com", "rol": "paciente"}'
+
+# Actualizar usuario
+curl -X PUT http://localhost:3001/usuarios/1 \
+  -H "Content-Type: application/json" \
+  -d '{"nombre": "Ana Torres Gómez", "email": "ana@demo.com", "rol": "paciente"}'
+
+# Desactivar usuario
+curl -X DELETE http://localhost:3001/usuarios/1
 ```
 
 ---
@@ -170,6 +186,7 @@ curl -X POST http://localhost:3001/usuarios \
 
 | Método | Ruta | Descripción | Body requerido |
 |---|---|---|---|
+| `GET` | `/` | Info del servicio y lista de endpoints | — |
 | `GET` | `/health` | Estado del servicio | — |
 | `GET` | `/especialidades` | Listar todas las especialidades | — |
 | `GET` | `/especialidades/:id` | Obtener especialidad por ID | — |
@@ -177,8 +194,15 @@ curl -X POST http://localhost:3001/usuarios \
 | `PUT` | `/especialidades/:id` | Actualizar especialidad | `{ nombre, descripcion? }` |
 | `DELETE` | `/especialidades/:id` | Desactivar especialidad | — |
 
-Ejemplo — Crear especialidad:
+Ejemplos:
 ```bash
+# Ver info del servicio
+curl http://localhost:3007/
+
+# Listar especialidades
+curl http://localhost:3007/especialidades
+
+# Crear especialidad
 curl -X POST http://localhost:3007/especialidades \
   -H "Content-Type: application/json" \
   -d '{"nombre": "Neurología", "descripcion": "Enfermedades del sistema nervioso"}'
@@ -190,6 +214,7 @@ curl -X POST http://localhost:3007/especialidades \
 
 | Método | Ruta | Descripción | Body / Params |
 |---|---|---|---|
+| `GET` | `/` | Info del servicio y lista de endpoints | — |
 | `GET` | `/health` | Estado del servicio | — |
 | `GET` | `/disponibilidad` | Listar bloques activos | `?medico_id=&fecha=` (opcionales) |
 | `GET` | `/disponibilidad/verificar` | Verificar si un médico está disponible en un horario | `?medico_id=&fecha=&hora=` |
@@ -199,8 +224,21 @@ curl -X POST http://localhost:3007/especialidades \
 
 > Este servicio valida que el `medico_id` exista en **MS-1** antes de registrar.
 
-Ejemplo — Registrar disponibilidad:
+Ejemplos:
 ```bash
+# Ver info del servicio
+curl http://localhost:3003/
+
+# Listar bloques (todos)
+curl http://localhost:3003/disponibilidad
+
+# Filtrar por médico y fecha
+curl "http://localhost:3003/disponibilidad?medico_id=3&fecha=2026-04-20"
+
+# Verificar disponibilidad en un horario
+curl "http://localhost:3003/disponibilidad/verificar?medico_id=3&fecha=2026-04-20&hora=09:00"
+
+# Registrar bloque de disponibilidad
 curl -X POST http://localhost:3003/disponibilidad \
   -H "Content-Type: application/json" \
   -d '{
@@ -218,6 +256,7 @@ curl -X POST http://localhost:3003/disponibilidad \
 
 | Método | Ruta | Descripción | Body requerido |
 |---|---|---|---|
+| `GET` | `/` | Info del servicio y lista de endpoints | — |
 | `GET` | `/health` | Estado del servicio | — |
 | `GET` | `/citas` | Listar todas las citas | — |
 | `GET` | `/citas/:id` | Detalle de una cita | — |
@@ -230,8 +269,15 @@ curl -X POST http://localhost:3003/disponibilidad \
 > 2. Verifica `medico_id` en MS-1 (debe existir y tener `rol = medico`)
 > 3. Verifica disponibilidad en MS-3 (el médico debe tener bloque activo en ese horario)
 
-Ejemplo — Agendar cita:
+Ejemplos:
 ```bash
+# Ver info del servicio
+curl http://localhost:3004/
+
+# Listar citas
+curl http://localhost:3004/citas
+
+# Agendar cita
 curl -X POST http://localhost:3004/citas \
   -H "Content-Type: application/json" \
   -d '{
@@ -240,6 +286,12 @@ curl -X POST http://localhost:3004/citas \
     "fecha_hora": "2026-04-20T09:00:00",
     "notas": "Control de rutina"
   }'
+
+# Cancelar cita
+curl -X PATCH http://localhost:3004/citas/1/cancelar
+
+# Completar cita
+curl -X PATCH http://localhost:3004/citas/1/completar
 ```
 
 ---

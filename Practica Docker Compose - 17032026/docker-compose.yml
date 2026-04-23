@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+
+  # FRONTEND: Interfaz web con Nginx 
+  frontend:
+    image: nginx:alpine
+    container_name: biblioteca_frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend/html:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+
+  # BACKEND: API REST con Node.js + Express 
+  backend:
+    image: node:18-alpine
+    container_name: biblioteca_backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    command: sh -c "npm install && node server.js"
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DB_HOST=base_datos
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    depends_on:
+      base_datos:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+
+  #BASE DE DATOS: MySQL 8.0 
+  base_datos:
+    image: mysql:8.0
+    container_name: biblioteca_db
+    environment:
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - datos_mysql:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3307:3306"
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # CACHÉ: Redis 7
+  cache:
+    image: redis:7-alpine
+    container_name: biblioteca_cache
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+#REDES
+networks:
+  biblioteca_net:
+    driver: bridge
+
+# VOLÚMENES PERSISTENTES 
+volumes:
+  datos_mysql:
+    driver: local

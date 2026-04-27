@@ -1,0 +1,26 @@
+﻿flowchart LR
+    FE[ms-frontend\nnginx:80]
+    GW[ms-gateway\nExpress:8080]
+
+    U[MS-1 Usuarios\nExpress:3001]
+    D[MS-3 Disponibilidad\nExpress:3003]
+    C[MS-4 Citas\nExpress:3004]
+    E[MS-7 Especialidades\nExpress:3007]
+
+    DB[(MySQL 8.0\ncitas_db:3306)]
+
+    FE --> GW
+    GW --> U
+    GW --> D
+    GW --> C
+    GW --> E
+
+    C -->|valida paciente/medico| U
+    C -->|verifica horario| D
+    D -->|valida medico| U
+    D -->|consulta especialidad| E
+
+    U --> DB
+    D --> DB
+    C --> DB
+    E --> DB

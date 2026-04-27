@@ -358,3 +358,22 @@ POST /disponibilidad
 ## Equipo
 
 Proyecto universitario — Curso de Sistemas Distribuidos
+
+---
+
+## API Gateway (Punto unico de entrada)
+
+Se agrego `ms-gateway` como entrada unificada para las APIs en:
+
+- `http://localhost:8080`
+
+Rutas expuestas por el gateway:
+
+- `http://localhost:8080/api/usuarios/*`
+- `http://localhost:8080/api/disponibilidad/*`
+- `http://localhost:8080/api/citas/*`
+- `http://localhost:8080/api/especialidades/*`
+
+Notas:
+- Los microservicios backend (`ms-usuarios`, `ms-disponibilidad`, `ms-citas`, `ms-especialidades`) ya no publican puertos al host.
+- El frontend fue actualizado para consumir exclusivamente el gateway.

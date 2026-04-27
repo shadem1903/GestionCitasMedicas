@@ -1,15 +1,15 @@
-/* ═══════════════════════════════════════════════════════════
-   Gestión de Citas Médicas — Frontend SPA
-   ═══════════════════════════════════════════════════════════ */
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   GestiÃ³n de Citas MÃ©dicas â€” Frontend SPA
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 const API = {
-  usuarios:       "http://localhost:3001",
-  disponibilidad: "http://localhost:3003",
-  citas:          "http://localhost:3004",
-  especialidades: "http://localhost:3007",
+  usuarios: "http://localhost:8080/api/usuarios",
+  disponibilidad: "http://localhost:8080/api/disponibilidad",
+  citas: "http://localhost:8080/api/citas",
+  especialidades: "http://localhost:8080/api/especialidades",
 };
 
-/* ── Utilidades ─────────────────────────────────────────────── */
+/* â”€â”€ Utilidades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function toast(msg, type = "info") {
   const el = document.createElement("div");
@@ -34,7 +34,7 @@ function badge(text, cls) {
 }
 
 function fmtFecha(str) {
-  if (!str) return "—";
+  if (!str) return "â€”";
   const d = new Date(str);
   return d.toLocaleString("es-CO", {
     day: "2-digit", month: "short", year: "numeric",
@@ -43,7 +43,7 @@ function fmtFecha(str) {
 }
 
 function fmtDate(str) {
-  if (!str) return "—";
+  if (!str) return "â€”";
   const [y, m, d] = str.split("-");
   return `${d}/${m}/${y}`;
 }
@@ -60,7 +60,7 @@ function closeModal() {
 
 function tableLoading(cols) {
   return `<tr class="loading-row"><td colspan="${cols}">
-    <span class="spinner"></span> Cargando…
+    <span class="spinner"></span> Cargandoâ€¦
   </td></tr>`;
 }
 
@@ -68,7 +68,7 @@ function tableEmpty(cols, msg = "Sin registros") {
   return `<tr><td colspan="${cols}" style="padding:40px;text-align:center;color:var(--text-muted)">${msg}</td></tr>`;
 }
 
-/* ── Navegación ─────────────────────────────────────────────── */
+/* â”€â”€ NavegaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const sections = {
   dashboard:      renderDashboard,
@@ -82,8 +82,8 @@ const sectionTitles = {
   dashboard:      "Dashboard",
   usuarios:       "Usuarios",
   especialidades: "Especialidades",
-  disponibilidad: "Disponibilidad Médica",
-  citas:          "Gestión de Citas",
+  disponibilidad: "Disponibilidad MÃ©dica",
+  citas:          "GestiÃ³n de Citas",
 };
 
 let currentSection = "dashboard";
@@ -118,9 +118,9 @@ document.getElementById("btn-nuevo").addEventListener("click", () => {
   actions[currentSection]?.();
 });
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    DASHBOARD
-══════════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 async function renderDashboard() {
   const main = document.getElementById("main-content");
@@ -175,9 +175,9 @@ async function renderDashboard() {
 
   const grid = document.getElementById("stats-grid");
   const labels = ["Usuarios","Especialidades","Disponibilidades","Citas"];
-  const subs   = ["pacientes y médicos","registradas","bloques activos","total registradas"];
+  const subs   = ["pacientes y mÃ©dicos","registradas","bloques activos","total registradas"];
   grid.innerHTML = counts.map((r, i) => {
-    const val = r.status === "fulfilled" ? r.value.total : "—";
+    const val = r.status === "fulfilled" ? r.value.total : "â€”";
     return `<div class="stat-card">
       <div class="label">${labels[i]}</div>
       <div class="value">${val}</div>
@@ -186,9 +186,9 @@ async function renderDashboard() {
   }).join("");
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    USUARIOS
-══════════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 async function renderUsuarios(filtroRol = "") {
   const main = document.getElementById("main-content");
@@ -199,7 +199,7 @@ async function renderUsuarios(filtroRol = "") {
         <select id="filtro-rol">
           <option value="">Todos</option>
           <option value="paciente" ${filtroRol==="paciente"?"selected":""}>Paciente</option>
-          <option value="medico"   ${filtroRol==="medico"  ?"selected":""}>Médico</option>
+          <option value="medico"   ${filtroRol==="medico"  ?"selected":""}>MÃ©dico</option>
           <option value="admin"    ${filtroRol==="admin"   ?"selected":""}>Admin</option>
         </select>
         <div class="spacer"></div>
@@ -244,18 +244,18 @@ function openFormUsuario() {
   openModal("Nuevo Usuario", `
     <div class="form-group">
       <label>Nombre completo</label>
-      <input id="f-nombre" type="text" placeholder="Ej: María García" />
+      <input id="f-nombre" type="text" placeholder="Ej: MarÃ­a GarcÃ­a" />
     </div>
     <div class="form-group">
-      <label>Correo electrónico</label>
+      <label>Correo electrÃ³nico</label>
       <input id="f-email" type="email" placeholder="correo@ejemplo.com" />
     </div>
     <div class="form-group">
       <label>Rol</label>
       <select id="f-rol">
-        <option value="">Seleccionar rol…</option>
+        <option value="">Seleccionar rolâ€¦</option>
         <option value="paciente">Paciente</option>
-        <option value="medico">Médico</option>
+        <option value="medico">MÃ©dico</option>
         <option value="admin">Administrador</option>
       </select>
     </div>
@@ -284,7 +284,7 @@ async function guardarUsuario() {
 }
 
 async function desactivarUsuario(id) {
-  if (!confirm("¿Desactivar este usuario?")) return;
+  if (!confirm("Â¿Desactivar este usuario?")) return;
   try {
     await apiFetch(`${API.usuarios}/usuarios/${id}`, { method: "DELETE" });
     toast("Usuario desactivado", "success");
@@ -294,9 +294,9 @@ async function desactivarUsuario(id) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    ESPECIALIDADES
-══════════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 async function renderEspecialidades() {
   const main = document.getElementById("main-content");
@@ -304,7 +304,7 @@ async function renderEspecialidades() {
     <div class="card">
       <table>
         <thead><tr>
-          <th>ID</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th>
+          <th>ID</th><th>Nombre</th><th>DescripciÃ³n</th><th>Estado</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-esp">${tableLoading(5)}</tbody>
       </table>
@@ -318,7 +318,7 @@ async function renderEspecialidades() {
       <tr>
         <td>${e.id}</td>
         <td><strong>${e.nombre}</strong></td>
-        <td>${e.descripcion || "<span style='color:var(--text-muted)'>—</span>"}</td>
+        <td>${e.descripcion || "<span style='color:var(--text-muted)'>â€”</span>"}</td>
         <td>${badge(e.activo ? "Activa" : "Inactiva", e.activo ? "activo" : "inactivo")}</td>
         <td class="td-actions">
           ${e.activo
@@ -336,11 +336,11 @@ function openFormEspecialidad() {
   openModal("Nueva Especialidad", `
     <div class="form-group">
       <label>Nombre</label>
-      <input id="f-esp-nombre" type="text" placeholder="Ej: Neurología" />
+      <input id="f-esp-nombre" type="text" placeholder="Ej: NeurologÃ­a" />
     </div>
     <div class="form-group">
-      <label>Descripción (opcional)</label>
-      <textarea id="f-esp-desc" placeholder="Breve descripción…"></textarea>
+      <label>DescripciÃ³n (opcional)</label>
+      <textarea id="f-esp-desc" placeholder="Breve descripciÃ³nâ€¦"></textarea>
     </div>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -366,7 +366,7 @@ async function guardarEspecialidad() {
 }
 
 async function desactivarEspecialidad(id) {
-  if (!confirm("¿Desactivar esta especialidad?")) return;
+  if (!confirm("Â¿Desactivar esta especialidad?")) return;
   try {
     await apiFetch(`${API.especialidades}/especialidades/${id}`, { method: "DELETE" });
     toast("Especialidad desactivada", "success");
@@ -376,16 +376,16 @@ async function desactivarEspecialidad(id) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    DISPONIBILIDAD
-══════════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 async function renderDisponibilidad() {
   const main = document.getElementById("main-content");
   main.innerHTML = `
     <div class="card">
       <div class="card-toolbar">
-        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Médico ID:</label>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">MÃ©dico ID:</label>
         <input id="filtro-medico" type="number" placeholder="Todos" style="width:90px" />
         <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Fecha:</label>
         <input id="filtro-fecha" type="date" />
@@ -394,7 +394,7 @@ async function renderDisponibilidad() {
       </div>
       <table>
         <thead><tr>
-          <th>ID</th><th>Médico ID</th><th>Fecha</th>
+          <th>ID</th><th>MÃ©dico ID</th><th>Fecha</th>
           <th>Hora inicio</th><th>Hora fin</th><th>Especialidad ID</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-disp">${tableLoading(7)}</tbody>
@@ -424,9 +424,9 @@ async function cargarDisponibilidad() {
         <td>${d.id}</td>
         <td>${d.medico_id}</td>
         <td>${fmtDate(d.fecha)}</td>
-        <td>${d.hora_inicio?.substring(0,5) || "—"}</td>
-        <td>${d.hora_fin?.substring(0,5) || "—"}</td>
-        <td>${d.especialidad_id ?? "<span style='color:var(--text-muted)'>—</span>"}</td>
+        <td>${d.hora_inicio?.substring(0,5) || "â€”"}</td>
+        <td>${d.hora_fin?.substring(0,5) || "â€”"}</td>
+        <td>${d.especialidad_id ?? "<span style='color:var(--text-muted)'>â€”</span>"}</td>
         <td class="td-actions">
           <button class="btn btn-danger btn-sm" onclick="eliminarDisponibilidad(${d.id})">Eliminar</button>
         </td>
@@ -437,12 +437,12 @@ async function cargarDisponibilidad() {
 }
 
 async function openFormDisponibilidad() {
-  // Cargar médicos y especialidades antes de abrir el modal
+  // Cargar mÃ©dicos y especialidades antes de abrir el modal
   let medicos = [], especialidades = [];
   try {
     const r = await apiFetch(`${API.usuarios}/usuarios`);
     medicos = r.datos.filter(u => u.rol === "medico" && u.activo);
-  } catch { /* sin médicos */ }
+  } catch { /* sin mÃ©dicos */ }
   try {
     const r = await apiFetch(`${API.especialidades}/especialidades`);
     especialidades = r.datos.filter(e => e.activo);
@@ -450,7 +450,7 @@ async function openFormDisponibilidad() {
 
   const optMedicos = medicos.length
     ? medicos.map(m => `<option value="${m.id}">${m.nombre} (ID ${m.id})</option>`).join("")
-    : `<option value="">No hay médicos registrados</option>`;
+    : `<option value="">No hay mÃ©dicos registrados</option>`;
 
   const optEsp = especialidades.length
     ? `<option value="">Sin especialidad</option>` +
@@ -459,7 +459,7 @@ async function openFormDisponibilidad() {
 
   openModal("Registrar Disponibilidad", `
     <div class="form-group">
-      <label>Médico</label>
+      <label>MÃ©dico</label>
       <select id="f-disp-medico">${optMedicos}</select>
     </div>
     <div class="form-group">
@@ -518,7 +518,7 @@ async function guardarDisponibilidad() {
 }
 
 async function eliminarDisponibilidad(id) {
-  if (!confirm("¿Eliminar este bloque de disponibilidad?")) return;
+  if (!confirm("Â¿Eliminar este bloque de disponibilidad?")) return;
   try {
     await apiFetch(`${API.disponibilidad}/disponibilidad/${id}`, { method: "DELETE" });
     toast("Bloque eliminado", "success");
@@ -528,9 +528,9 @@ async function eliminarDisponibilidad(id) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CITAS
-══════════════════════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 async function renderCitas(filtroEstado = "") {
   const main = document.getElementById("main-content");
@@ -549,7 +549,7 @@ async function renderCitas(filtroEstado = "") {
       <table>
         <thead><tr>
           <th>ID</th><th>Fecha y hora</th><th>Paciente</th>
-          <th>Médico</th><th>Estado</th><th>Notas</th><th>Acciones</th>
+          <th>MÃ©dico</th><th>Estado</th><th>Notas</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-citas">${tableLoading(7)}</tbody>
       </table>
@@ -571,7 +571,7 @@ async function renderCitas(filtroEstado = "") {
         <td>${c.paciente}</td>
         <td>${c.medico}</td>
         <td>${badge(c.estado, c.estado)}</td>
-        <td>${c.notas ? `<span title="${c.notas}" style="cursor:help">📝</span>` : "—"}</td>
+        <td>${c.notas ? `<span title="${c.notas}" style="cursor:help">ðŸ“</span>` : "â€”"}</td>
         <td class="td-actions">
           ${c.estado === "programada" ? `
             <button class="btn btn-success btn-sm" onclick="completarCita(${c.id})">Completar</button>
@@ -599,9 +599,9 @@ async function openFormCita() {
 
   const optMed = medicos.length
     ? medicos.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("")
-    : `<option value="">Sin médicos registrados</option>`;
+    : `<option value="">Sin mÃ©dicos registrados</option>`;
 
-  // Fecha/hora mínima = ahora
+  // Fecha/hora mÃ­nima = ahora
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   const minDT = now.toISOString().slice(0, 16);
@@ -612,7 +612,7 @@ async function openFormCita() {
       <select id="f-cita-pac">${optPac}</select>
     </div>
     <div class="form-group">
-      <label>Médico</label>
+      <label>MÃ©dico</label>
       <select id="f-cita-med">${optMed}</select>
     </div>
     <div class="form-group">
@@ -621,10 +621,10 @@ async function openFormCita() {
     </div>
     <div class="form-group">
       <label>Notas (opcional)</label>
-      <textarea id="f-cita-notas" placeholder="Motivo de consulta, observaciones…"></textarea>
+      <textarea id="f-cita-notas" placeholder="Motivo de consulta, observacionesâ€¦"></textarea>
     </div>
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
-      ℹ️ El médico debe tener disponibilidad registrada en ese horario.
+      â„¹ï¸ El mÃ©dico debe tener disponibilidad registrada en ese horario.
     </p>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -661,7 +661,7 @@ async function guardarCita() {
 }
 
 async function cancelarCita(id) {
-  if (!confirm("¿Cancelar esta cita?")) return;
+  if (!confirm("Â¿Cancelar esta cita?")) return;
   try {
     await apiFetch(`${API.citas}/citas/${id}/cancelar`, { method: "PATCH" });
     toast("Cita cancelada", "success");
@@ -672,7 +672,7 @@ async function cancelarCita(id) {
 }
 
 async function completarCita(id) {
-  if (!confirm("¿Marcar esta cita como completada?")) return;
+  if (!confirm("Â¿Marcar esta cita como completada?")) return;
   try {
     await apiFetch(`${API.citas}/citas/${id}/completar`, { method: "PATCH" });
     toast("Cita marcada como completada", "success");
@@ -682,5 +682,6 @@ async function completarCita(id) {
   }
 }
 
-/* ── Inicio ─────────────────────────────────────────────────── */
+/* â”€â”€ Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 navigate("dashboard");
+

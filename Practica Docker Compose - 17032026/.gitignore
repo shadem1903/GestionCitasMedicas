@@ -1,0 +1,21 @@
+# Node
+node_modules/
+backend/node_modules/
+
+# Env (variables sensibles)
+.env
+backend/.env
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Docker (opcional ignorar)
+docker-data/

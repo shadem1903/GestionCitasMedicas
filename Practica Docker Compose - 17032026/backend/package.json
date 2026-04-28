@@ -1,0 +1,16 @@
+{
+  "name": "bibliotecanet-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+<<<<<<< HEAD
+    "pg": "^8.11.3"
+=======
+    "mysql2": "^3.20.0",
+    "redis": "^4.6.10"
+>>>>>>> origin/JosueRivera
+  }
+}

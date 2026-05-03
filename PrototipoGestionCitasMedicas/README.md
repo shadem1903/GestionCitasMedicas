@@ -10,25 +10,21 @@ Plataforma distribuida para el agendamiento de citas médicas, desarrollada con 
 ```
                         [ citas_net — red Docker bridge ]
                                       │
-              ┌───────────────────────┼──────────────────────┐
-              │                       │                      │
-         ms-frontend             ms-usuarios          ms-especialidades
-           :80 (nginx)              :3001                  :3007
-                                      ↑                      ↑
-                               ┌──────┴──────────────────────┘
-                               │               ↑
-                        ms-disponibilidad      │
-                              :3003 ───────────┘
-                               ↑
-                          ms-citas
-                            :3004
-                         ↙         ↘
-                  ms-usuarios   ms-disponibilidad
-                                        │
-                              ┌─────────┴────────┐
-                              ▼                  ▼
-                           MySQL 8.0  ←  (todos comparten BD)
-                            :3306
+                                 ms-frontend
+                                   :80 (nginx)
+                                      │
+                                 ms-gateway
+                                  :8080 (API)
+                                      │
+              ┌───────────────┬───────┴───────┬───────────────┐
+              ▼               ▼               ▼               ▼
+         ms-usuarios      ms-citas    ms-disponibilidad ms-especialidades
+           (MS-1)          (MS-4)          (MS-3)          (MS-7)
+              │               │               │               │
+              └───────────────┴───────┬───────┴───────────────┘
+                                      ▼
+                                   MySQL 8.0
+                                :3306 (host map)
 ```
 
 ---

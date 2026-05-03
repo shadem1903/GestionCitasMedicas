@@ -7,7 +7,22 @@ const API = {
   disponibilidad: "http://localhost:8080/api/disponibilidad",
   citas: "http://localhost:8080/api/citas",
   especialidades: "http://localhost:8080/api/especialidades",
+  auth: "http://localhost:8080/api/auth",
 };
+
+const AUTH_USER_KEY = "gcitas_current_user";
+const AUTH_TOKEN_KEY = "gcitas_auth_token";
+const ROLE_SECTIONS = {
+  admin: ["dashboard", "usuarios", "especialidades", "disponibilidad", "citas", "historial"],
+  medico: ["dashboard", "disponibilidad", "citas", "historial"],
+  paciente: ["dashboard", "citas", "historial"],
+};
+const CREATE_SECTIONS_BY_ROLE = {
+  admin: ["usuarios", "especialidades", "disponibilidad", "citas"],
+  medico: ["disponibilidad"],
+  paciente: ["citas"],
+};
+let currentUser = null;
 
 /* â”€â”€ Utilidades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
@@ -34,8 +49,9 @@ function badge(text, cls) {
 }
 
 function fmtFecha(str) {
-  if (!str) return "â€”";
+  if (!str) return "-";
   const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString("es-CO", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
@@ -43,8 +59,9 @@ function fmtFecha(str) {
 }
 
 function fmtDate(str) {
-  if (!str) return "â€”";
-  const [y, m, d] = str.split("-");
+  if (!str || !String(str).includes("-")) return "-";
+  const [y, m, d] = String(str).split("-");
+  if (!y || !m || !d) return "-";
   return `${d}/${m}/${y}`;
 }
 
@@ -76,6 +93,7 @@ const sections = {
   especialidades: renderEspecialidades,
   disponibilidad: renderDisponibilidad,
   citas:          renderCitas,
+  historial:      renderHistorial,
 };
 
 const sectionTitles = {
@@ -84,19 +102,66 @@ const sectionTitles = {
   especialidades: "Especialidades",
   disponibilidad: "Disponibilidad MÃ©dica",
   citas:          "GestiÃ³n de Citas",
+  historial:      "Historial",
 };
 
 let currentSection = "dashboard";
 
 function navigate(section) {
+  if (!canAccessSection(section)) {
+    toast("No tienes permisos para esta seccion", "error");
+    return;
+  }
   currentSection = section;
   document.querySelectorAll(".nav-item").forEach(el => {
     el.classList.toggle("active", el.dataset.section === section);
   });
   document.getElementById("page-title").textContent = sectionTitles[section];
   const btnNuevo = document.getElementById("btn-nuevo");
-  btnNuevo.classList.toggle("hidden", section === "dashboard");
+  btnNuevo.classList.toggle("hidden", section === "dashboard" || !canCreateInSection(section));
   sections[section]();
+}
+
+function canAccessSection(section) {
+  return (ROLE_SECTIONS[currentUser?.rol] || []).includes(section);
+}
+function canCreateInSection(section) {
+  return (CREATE_SECTIONS_BY_ROLE[currentUser?.rol] || []).includes(section);
+}
+function applyRoleUI() {
+  const allowed = ROLE_SECTIONS[currentUser?.rol] || [];
+  document.querySelectorAll(".nav-item").forEach(el => {
+    el.classList.toggle("hidden", !allowed.includes(el.dataset.section));
+  });
+
+  const label = document.getElementById("current-user-label");
+  const btnLogout = document.getElementById("btn-logout");
+  if (currentUser) {
+    label.textContent = `${currentUser.nombre} (${currentUser.rol})`;
+    label.classList.remove("hidden");
+    btnLogout.classList.remove("hidden");
+  } else {
+    label.classList.add("hidden");
+    btnLogout.classList.add("hidden");
+  }
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.location.href = "/login.html";
+}
+function initAuth() {
+  try { currentUser = JSON.parse(localStorage.getItem(AUTH_USER_KEY) || "null"); }
+  catch { currentUser = null; }
+
+  if (!currentUser || !ROLE_SECTIONS[currentUser.rol]) {
+    window.location.href = "/login.html";
+    return;
+  }
+  applyRoleUI();
+  navigate((ROLE_SECTIONS[currentUser.rol] || ["dashboard"])[0]);
 }
 
 document.querySelectorAll(".nav-item").forEach(el => {
@@ -117,6 +182,7 @@ document.getElementById("btn-nuevo").addEventListener("click", () => {
   };
   actions[currentSection]?.();
 });
+document.getElementById("btn-logout").addEventListener("click", logout);
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    DASHBOARD
@@ -561,7 +627,20 @@ async function renderCitas(filtroEstado = "") {
 
   try {
     const { datos } = await apiFetch(`${API.citas}/citas`);
-    const filtradas = filtroEstado ? datos.filter(c => c.estado === filtroEstado) : datos;
+    let filtradas = filtroEstado ? datos.filter(c => c.estado === filtroEstado) : datos;
+
+    if (currentUser?.rol === "medico") {
+      filtradas = filtradas.filter(c =>
+        Number(c.medico_id) === Number(currentUser.id) ||
+        String(c.medico || "").toLowerCase() === String(currentUser.nombre || "").toLowerCase()
+      );
+    } else if (currentUser?.rol === "paciente") {
+      filtradas = filtradas.filter(c =>
+        Number(c.paciente_id) === Number(currentUser.id) ||
+        String(c.paciente || "").toLowerCase() === String(currentUser.nombre || "").toLowerCase()
+      );
+    }
+
     const tbody = document.getElementById("tbody-citas");
     if (!filtradas.length) { tbody.innerHTML = tableEmpty(7); return; }
     tbody.innerHTML = filtradas.map(c => `
@@ -683,5 +762,9 @@ async function completarCita(id) {
 }
 
 /* â”€â”€ Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-navigate("dashboard");
+initAuth();
 
+function renderHistorial() {
+  const main = document.getElementById("main-content");
+  main.innerHTML = `<div class="card"><div class="empty">El historial detallado se mostrara en la siguiente iteracion.</div></div>`;
+}

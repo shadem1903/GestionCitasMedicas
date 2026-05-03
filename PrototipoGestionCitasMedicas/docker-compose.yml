@@ -1,4 +1,4 @@
-﻿services:
+services:
   mysql:
     image: mysql:8.0
     container_name: citas_mysql
@@ -91,6 +91,7 @@
       DB_NAME: citas_db
       MS_USUARIOS_URL: http://ms-usuarios:3001
       MS_DISPONIBILIDAD_URL: http://ms-disponibilidad:3003
+      MS_HISTORIAL_URL: http://ms-historial:3005
     depends_on:
       mysql:
         condition: service_healthy
@@ -98,6 +99,25 @@
         condition: service_started
       ms-disponibilidad:
         condition: service_started
+      ms-historial:
+        condition: service_started
+    networks:
+      - citas_net
+
+  ms-historial:
+    build: ./ms-historial
+    container_name: ms_historial
+    restart: unless-stopped
+    environment:
+      PORT: 3005
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: citas_db
+    depends_on:
+      mysql:
+        condition: service_healthy
     networks:
       - citas_net
 
@@ -110,14 +130,37 @@
       MS_USUARIOS_URL: http://ms-usuarios:3001
       MS_DISPONIBILIDAD_URL: http://ms-disponibilidad:3003
       MS_CITAS_URL: http://ms-citas:3004
+      MS_HISTORIAL_URL: http://ms-historial:3005
       MS_ESPECIALIDADES_URL: http://ms-especialidades:3007
+      MS_AUTH_URL: http://ms-auth:3006
     ports:
       - "8080:8080"
     depends_on:
       - ms-usuarios
       - ms-disponibilidad
       - ms-citas
+      - ms-historial
       - ms-especialidades
+      - ms-auth
+    networks:
+      - citas_net
+
+  ms-auth:
+    build: ./ms-auth
+    container_name: ms_auth
+    restart: unless-stopped
+    environment:
+      PORT: 3006
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_NAME: citas_db
+      JWT_SECRET: super_secret_dev_key
+      JWT_EXPIRES: 8h
+    depends_on:
+      mysql:
+        condition: service_healthy
     networks:
       - citas_net
 

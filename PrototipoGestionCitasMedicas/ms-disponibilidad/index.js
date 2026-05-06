@@ -34,23 +34,6 @@ async function validarMedico(medico_id) {
   }
 }
 
-// Obtiene el nombre de una especialidad desde ms-especialidades
-
-
-async function loadDisponibilidadSchema() {
-  const [rows] = await pool.execute(
-    `SELECT column_name
-     FROM information_schema.columns
-     WHERE table_schema = DATABASE()
-       AND table_name = 'disponibilidad'
-       AND column_name IN ('especialidad_id')`
-  );
-  const columns = rows.map(r => r.column_name);
-  return {
-    hasEspecialidadId: columns.includes('especialidad_id'),
-  };
-}
-
 async function obtenerEspecialidad(especialidad_id) {
   try {
     const res = await fetch(`${MS_ESPECIALIDADES_URL}/especialidades/${especialidad_id}`);
@@ -461,22 +444,11 @@ app.post("/disponibilidad", async (req, res) => {
   }
 
   try {
-    const schema = await loadDisponibilidadSchema();
-
-    let result;
-    if (schema.hasEspecialidadId) {
-      [result] = await pool.execute(
-        `INSERT INTO disponibilidad (medico_id, especialidad_id, fecha, hora_inicio, hora_fin)
-         VALUES (?, ?, ?, ?, ?)`,
-        [medico_id, especialidad_id || null, fecha, hora_inicio, hora_fin]
-      );
-    } else {
-      [result] = await pool.execute(
-        `INSERT INTO disponibilidad (medico_id, fecha, hora_inicio, hora_fin)
-         VALUES (?, ?, ?, ?)`,
-        [medico_id, fecha, hora_inicio, hora_fin]
-      );
-    }
+    const [result] = await pool.execute(
+      `INSERT INTO disponibilidad (medico_id, especialidad_id, fecha, hora_inicio, hora_fin)
+       VALUES (?, ?, ?, ?, ?)`,
+      [medico_id, especialidad_id || null, fecha, hora_inicio, hora_fin]
+    );
 
     const [rows] = await pool.execute(
       "SELECT * FROM disponibilidad WHERE id = ?",

@@ -41,22 +41,6 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/api", (req, res) => {
-  res.json({
-    servicio: "ms-gateway",
-    version: "1.1.0",
-    endpoints: [
-      "GET  /health",
-      "ALL  /api/usuarios/*",
-      "ALL  /api/disponibilidad/*",
-      "ALL  /api/citas/*",
-      "ALL  /api/historial/*",
-      "ALL  /api/especialidades/*",
-      "ALL  /api/auth/*",
-    ],
-  });
-});
-
 app.get("/health", (req, res) => {
   res.json({ servicio: "ms-gateway", estado: "ok", timestamp: new Date() });
 });

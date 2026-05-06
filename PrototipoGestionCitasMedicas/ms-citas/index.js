@@ -184,16 +184,12 @@ app.post("/citas", async (req, res) => {
       WHERE medico_id = ?
         AND fecha = ?
         AND estado IN ('pendiente', 'confirmada')
-        AND (
-          (hora_inicio < ? AND hora_fin > ?) OR
-          (hora_inicio < ? AND hora_fin > ?)
-        )
+        AND hora_inicio < ?
+        AND hora_fin > ?
       LIMIT 1
     `, [
       medico_id,
       fecha,
-      normalizarHora(hora_fin),
-      normalizarHora(hora_inicio),
       normalizarHora(hora_fin),
       normalizarHora(hora_inicio),
     ]);

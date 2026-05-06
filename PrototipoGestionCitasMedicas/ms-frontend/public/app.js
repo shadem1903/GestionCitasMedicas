@@ -1,4 +1,4 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+﻿﻿﻿﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    GestiÃ³n de Citas MÃ©dicas â€” Frontend SPA
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
@@ -7,6 +7,7 @@ const API = {
   disponibilidad: "http://localhost:8080/api/disponibilidad",
   citas: "http://localhost:8080/api/citas",
   especialidades: "http://localhost:8080/api/especialidades",
+  historial: "http://localhost:8080/api/historial",
   auth: "http://localhost:8080/api/auth",
 };
 
@@ -47,6 +48,13 @@ async function apiFetch(url, opts = {}) {
 function badge(text, cls) {
   return `<span class="badge badge-${cls}">${text}</span>`;
 }
+function cleanNota(text) {
+  if (!text) return "-";
+  const t = String(text).trim();
+  if (!t) return "-";
+  if (t.includes("ðŸ") || t.includes("�")) return "-";
+  return t;
+}
 
 function fmtFecha(str) {
   if (!str) return "-";
@@ -59,10 +67,11 @@ function fmtFecha(str) {
 }
 
 function fmtDate(str) {
-  if (!str || !String(str).includes("-")) return "-";
-  const [y, m, d] = String(str).split("-");
-  if (!y || !m || !d) return "-";
-  return `${d}/${m}/${y}`;
+  if (!str) return "-";
+  const raw = String(str);
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return "-";
 }
 
 function openModal(title, bodyHTML) {
@@ -449,38 +458,60 @@ async function desactivarEspecialidad(id) {
 async function renderDisponibilidad() {
   const main = document.getElementById("main-content");
   main.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="btn btn-sm" data-dtab="bloques"   onclick="switchDispTab('bloques')">Bloques manuales</button>
+      <button class="btn btn-sm" data-dtab="schedules" onclick="switchDispTab('schedules')">Horarios semanales</button>
+      <button class="btn btn-sm" data-dtab="blocks"    onclick="switchDispTab('blocks')">Bloqueos</button>
+    </div>
+    <div id="disp-content"></div>`;
+  switchDispTab(currentDispTab);
+}
+
+const DIAS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+let currentDispTab = "bloques";
+
+function switchDispTab(tab) {
+  currentDispTab = tab;
+  document.querySelectorAll("[data-dtab]").forEach(b => {
+    b.className = `btn btn-sm ${b.dataset.dtab === tab ? "btn-primary" : "btn-ghost"}`;
+  });
+  if (tab === "schedules") renderDispSchedules();
+  else if (tab === "blocks") renderDispBlocks();
+  else renderDispBloques();
+}
+
+/* - Bloques manuales - */
+function renderDispBloques() {
+  const content = document.getElementById("disp-content");
+  content.innerHTML = `
     <div class="card">
       <div class="card-toolbar">
-        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">MÃ©dico ID:</label>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Médico ID:</label>
         <input id="filtro-medico" type="number" placeholder="Todos" style="width:90px" />
         <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Fecha:</label>
         <input id="filtro-fecha" type="date" />
-        <button class="btn btn-ghost btn-sm" onclick="cargarDisponibilidad()">Filtrar</button>
+        <button class="btn btn-ghost btn-sm" onclick="cargarDispBloques()">Filtrar</button>
         <div class="spacer"></div>
       </div>
       <table>
         <thead><tr>
-          <th>ID</th><th>MÃ©dico ID</th><th>Fecha</th>
+          <th>ID</th><th>Médico ID</th><th>Fecha</th>
           <th>Hora inicio</th><th>Hora fin</th><th>Especialidad ID</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-disp">${tableLoading(7)}</tbody>
       </table>
     </div>`;
-
-  cargarDisponibilidad();
+  cargarDispBloques();
 }
 
-async function cargarDisponibilidad() {
+async function cargarDispBloques() {
   const medicoId = document.getElementById("filtro-medico")?.value.trim();
   const fecha    = document.getElementById("filtro-fecha")?.value;
-
   const params = new URLSearchParams();
   if (medicoId) params.set("medico_id", medicoId);
   if (fecha)    params.set("fecha", fecha);
-
   const tbody = document.getElementById("tbody-disp");
   tbody.innerHTML = tableLoading(7);
-
   try {
     const qs = params.toString();
     const { datos } = await apiFetch(`${API.disponibilidad}/disponibilidad${qs ? "?" + qs : ""}`);
@@ -490,9 +521,9 @@ async function cargarDisponibilidad() {
         <td>${d.id}</td>
         <td>${d.medico_id}</td>
         <td>${fmtDate(d.fecha)}</td>
-        <td>${d.hora_inicio?.substring(0,5) || "â€”"}</td>
-        <td>${d.hora_fin?.substring(0,5) || "â€”"}</td>
-        <td>${d.especialidad_id ?? "<span style='color:var(--text-muted)'>â€”</span>"}</td>
+        <td>${d.hora_inicio?.substring(0,5) || "—"}</td>
+        <td>${d.hora_fin?.substring(0,5) || "—"}</td>
+        <td>${d.especialidad_id ?? "<span style='color:var(--text-muted)'>—</span>"}</td>
         <td class="td-actions">
           <button class="btn btn-danger btn-sm" onclick="eliminarDisponibilidad(${d.id})">Eliminar</button>
         </td>
@@ -503,21 +534,22 @@ async function cargarDisponibilidad() {
 }
 
 async function openFormDisponibilidad() {
-  // Cargar mÃ©dicos y especialidades antes de abrir el modal
+  if (currentDispTab === "schedules") return openFormSchedule();
+  if (currentDispTab === "blocks")    return openFormBlock();
+
   let medicos = [], especialidades = [];
   try {
     const r = await apiFetch(`${API.usuarios}/usuarios`);
     medicos = r.datos.filter(u => u.rol === "medico" && u.activo);
-  } catch { /* sin mÃ©dicos */ }
+  } catch { }
   try {
     const r = await apiFetch(`${API.especialidades}/especialidades`);
     especialidades = r.datos.filter(e => e.activo);
-  } catch { /* sin especialidades */ }
+  } catch { }
 
   const optMedicos = medicos.length
     ? medicos.map(m => `<option value="${m.id}">${m.nombre} (ID ${m.id})</option>`).join("")
-    : `<option value="">No hay mÃ©dicos registrados</option>`;
-
+    : `<option value="">No hay médicos registrados</option>`;
   const optEsp = especialidades.length
     ? `<option value="">Sin especialidad</option>` +
       especialidades.map(e => `<option value="${e.id}">${e.nombre}</option>`).join("")
@@ -525,7 +557,7 @@ async function openFormDisponibilidad() {
 
   openModal("Registrar Disponibilidad", `
     <div class="form-group">
-      <label>MÃ©dico</label>
+      <label>Médico</label>
       <select id="f-disp-medico">${optMedicos}</select>
     </div>
     <div class="form-group">
@@ -553,19 +585,17 @@ async function openFormDisponibilidad() {
 }
 
 async function guardarDisponibilidad() {
-  const medico_id      = document.getElementById("f-disp-medico").value;
-  const especialidad_id= document.getElementById("f-disp-esp").value || null;
-  const fecha          = document.getElementById("f-disp-fecha").value;
-  const hora_inicio    = document.getElementById("f-disp-inicio").value;
-  const hora_fin       = document.getElementById("f-disp-fin").value;
-
+  const medico_id       = document.getElementById("f-disp-medico").value;
+  const especialidad_id = document.getElementById("f-disp-esp").value || null;
+  const fecha           = document.getElementById("f-disp-fecha").value;
+  const hora_inicio     = document.getElementById("f-disp-inicio").value;
+  const hora_fin        = document.getElementById("f-disp-fin").value;
   if (!medico_id || !fecha || !hora_inicio || !hora_fin) {
     toast("Completa todos los campos requeridos", "error"); return;
   }
   if (hora_inicio >= hora_fin) {
     toast("La hora de inicio debe ser anterior a la hora fin", "error"); return;
   }
-
   try {
     await apiFetch(`${API.disponibilidad}/disponibilidad`, {
       method: "POST",
@@ -577,26 +607,273 @@ async function guardarDisponibilidad() {
     });
     toast("Disponibilidad registrada correctamente", "success");
     closeModal();
-    renderDisponibilidad();
+    renderDispBloques();
   } catch (err) {
     toast(err.message, "error");
   }
 }
 
 async function eliminarDisponibilidad(id) {
-  if (!confirm("Â¿Eliminar este bloque de disponibilidad?")) return;
+  if (!confirm("¿Eliminar este bloque de disponibilidad?")) return;
   try {
     await apiFetch(`${API.disponibilidad}/disponibilidad/${id}`, { method: "DELETE" });
     toast("Bloque eliminado", "success");
-    cargarDisponibilidad();
+    cargarDispBloques();
   } catch (err) {
     toast(err.message, "error");
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   CITAS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* - Horarios semanales - */
+function renderDispSchedules() {
+  const content = document.getElementById("disp-content");
+  content.innerHTML = `
+    <div class="card">
+      <div class="card-toolbar">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Médico ID:</label>
+        <input id="filtro-sched-medico" type="number" placeholder="Todos" style="width:90px" />
+        <button class="btn btn-ghost btn-sm" onclick="cargarSchedules()">Filtrar</button>
+        <div class="spacer"></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>ID</th><th>Médico</th><th>Día</th><th>Hora inicio</th><th>Hora fin</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="tbody-sched">${tableLoading(6)}</tbody>
+      </table>
+    </div>`;
+  cargarSchedules();
+}
+
+async function cargarSchedules() {
+  const medicoId = document.getElementById("filtro-sched-medico")?.value.trim();
+  const params = new URLSearchParams();
+  if (medicoId) params.set("medico_id", medicoId);
+  const tbody = document.getElementById("tbody-sched");
+  tbody.innerHTML = tableLoading(6);
+  try {
+    const qs = params.toString();
+    const { datos } = await apiFetch(`${API.disponibilidad}/doctor-schedules${qs ? "?" + qs : ""}`);
+    if (!datos.length) { tbody.innerHTML = tableEmpty(6); return; }
+    tbody.innerHTML = datos.map(s => `
+      <tr>
+        <td>${s.id}</td>
+        <td>${s.medico || s.medico_id}</td>
+        <td>${DIAS[s.dia_semana] ?? s.dia_semana}</td>
+        <td>${String(s.hora_inicio || "").substring(0,5)}</td>
+        <td>${String(s.hora_fin || "").substring(0,5)}</td>
+        <td class="td-actions">
+          <button class="btn btn-danger btn-sm" onclick="eliminarSchedule(${s.id})">Eliminar</button>
+        </td>
+      </tr>`).join("");
+  } catch (err) {
+    tbody.innerHTML = tableEmpty(6, `Error: ${err.message}`);
+  }
+}
+
+async function openFormSchedule() {
+  let medicos = [];
+  try {
+    const r = await apiFetch(`${API.usuarios}/usuarios`);
+    medicos = r.datos.filter(u => u.rol === "medico" && u.activo);
+  } catch { }
+  const optMedicos = medicos.length
+    ? medicos.map(m => `<option value="${m.id}">${m.nombre} (ID ${m.id})</option>`).join("")
+    : `<option value="">No hay médicos registrados</option>`;
+  const optDias = DIAS.map((d, i) => `<option value="${i}">${d}</option>`).join("");
+
+  openModal("Nuevo Horario Semanal", `
+    <div class="form-group">
+      <label>Médico</label>
+      <select id="f-sched-medico">${optMedicos}</select>
+    </div>
+    <div class="form-group">
+      <label>Día de la semana</label>
+      <select id="f-sched-dia">${optDias}</select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Hora inicio</label>
+        <input id="f-sched-inicio" type="time" />
+      </div>
+      <div class="form-group">
+        <label>Hora fin</label>
+        <input id="f-sched-fin" type="time" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarSchedule()">Crear</button>
+    </div>`);
+}
+
+async function guardarSchedule() {
+  const medico_id   = document.getElementById("f-sched-medico").value;
+  const dia_semana  = document.getElementById("f-sched-dia").value;
+  const hora_inicio = document.getElementById("f-sched-inicio").value;
+  const hora_fin    = document.getElementById("f-sched-fin").value;
+  if (!medico_id || dia_semana === "" || !hora_inicio || !hora_fin) {
+    toast("Completa todos los campos", "error"); return;
+  }
+  if (hora_inicio >= hora_fin) {
+    toast("La hora de inicio debe ser anterior a la hora fin", "error"); return;
+  }
+  try {
+    await apiFetch(`${API.disponibilidad}/doctor-schedules`, {
+      method: "POST",
+      body: JSON.stringify({
+        medico_id: parseInt(medico_id),
+        dia_semana: parseInt(dia_semana),
+        hora_inicio, hora_fin,
+      }),
+    });
+    toast("Horario semanal creado", "success");
+    closeModal();
+    cargarSchedules();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function eliminarSchedule(id) {
+  if (!confirm("¿Eliminar este horario semanal?")) return;
+  try {
+    await apiFetch(`${API.disponibilidad}/doctor-schedules/${id}`, { method: "DELETE" });
+    toast("Horario eliminado", "success");
+    cargarSchedules();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+/* - Bloqueos - */
+function renderDispBlocks() {
+  const content = document.getElementById("disp-content");
+  content.innerHTML = `
+    <div class="card">
+      <div class="card-toolbar">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Médico ID:</label>
+        <input id="filtro-block-medico" type="number" placeholder="Todos" style="width:90px" />
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Fecha:</label>
+        <input id="filtro-block-fecha" type="date" />
+        <button class="btn btn-ghost btn-sm" onclick="cargarBlocks()">Filtrar</button>
+        <div class="spacer"></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>ID</th><th>Médico</th><th>Fecha</th><th>Hora inicio</th><th>Hora fin</th><th>Motivo</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="tbody-blocks">${tableLoading(7)}</tbody>
+      </table>
+    </div>`;
+  cargarBlocks();
+}
+
+async function cargarBlocks() {
+  const medicoId = document.getElementById("filtro-block-medico")?.value.trim();
+  const fecha    = document.getElementById("filtro-block-fecha")?.value;
+  const params = new URLSearchParams();
+  if (medicoId) params.set("medico_id", medicoId);
+  if (fecha)    params.set("fecha", fecha);
+  const tbody = document.getElementById("tbody-blocks");
+  tbody.innerHTML = tableLoading(7);
+  try {
+    const qs = params.toString();
+    const { datos } = await apiFetch(`${API.disponibilidad}/doctor-blocks${qs ? "?" + qs : ""}`);
+    if (!datos.length) { tbody.innerHTML = tableEmpty(7); return; }
+    tbody.innerHTML = datos.map(b => `
+      <tr>
+        <td>${b.id}</td>
+        <td>${b.medico || b.medico_id}</td>
+        <td>${fmtDate(b.fecha)}</td>
+        <td>${b.hora_inicio ? String(b.hora_inicio).substring(0,5) : "<span style='color:var(--text-muted)'>Todo el día</span>"}</td>
+        <td>${b.hora_fin   ? String(b.hora_fin).substring(0,5)   : "—"}</td>
+        <td>${b.motivo || "—"}</td>
+        <td class="td-actions">
+          <button class="btn btn-danger btn-sm" onclick="eliminarBlock(${b.id})">Eliminar</button>
+        </td>
+      </tr>`).join("");
+  } catch (err) {
+    tbody.innerHTML = tableEmpty(7, `Error: ${err.message}`);
+  }
+}
+
+async function openFormBlock() {
+  let medicos = [];
+  try {
+    const r = await apiFetch(`${API.usuarios}/usuarios`);
+    medicos = r.datos.filter(u => u.rol === "medico" && u.activo);
+  } catch { }
+  const optMedicos = medicos.length
+    ? medicos.map(m => `<option value="${m.id}">${m.nombre} (ID ${m.id})</option>`).join("")
+    : `<option value="">No hay médicos registrados</option>`;
+
+  openModal("Nuevo Bloqueo", `
+    <div class="form-group">
+      <label>Médico</label>
+      <select id="f-block-medico">${optMedicos}</select>
+    </div>
+    <div class="form-group">
+      <label>Fecha</label>
+      <input id="f-block-fecha" type="date" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Hora inicio (opcional)</label>
+        <input id="f-block-inicio" type="time" />
+      </div>
+      <div class="form-group">
+        <label>Hora fin (opcional)</label>
+        <input id="f-block-fin" type="time" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Motivo (opcional)</label>
+      <input id="f-block-motivo" type="text" placeholder="Ej: Reunión, vacaciones..." />
+    </div>
+    <p style="font-size:12px;color:var(--text-muted)">Sin hora → bloqueo de todo el día.</p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarBlock()">Crear bloqueo</button>
+    </div>`);
+}
+
+async function guardarBlock() {
+  const medico_id   = document.getElementById("f-block-medico").value;
+  const fecha       = document.getElementById("f-block-fecha").value;
+  const hora_inicio = document.getElementById("f-block-inicio").value || null;
+  const hora_fin    = document.getElementById("f-block-fin").value || null;
+  const motivo      = document.getElementById("f-block-motivo").value.trim() || null;
+  if (!medico_id || !fecha) {
+    toast("Médico y fecha son requeridos", "error"); return;
+  }
+  if (hora_inicio && hora_fin && hora_inicio >= hora_fin) {
+    toast("La hora de inicio debe ser anterior a la hora fin", "error"); return;
+  }
+  try {
+    await apiFetch(`${API.disponibilidad}/doctor-blocks`, {
+      method: "POST",
+      body: JSON.stringify({ medico_id: parseInt(medico_id), fecha, hora_inicio, hora_fin, motivo }),
+    });
+    toast("Bloqueo creado", "success");
+    closeModal();
+    cargarBlocks();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function eliminarBlock(id) {
+  if (!confirm("¿Eliminar este bloqueo?")) return;
+  try {
+    await apiFetch(`${API.disponibilidad}/doctor-blocks/${id}`, { method: "DELETE" });
+    toast("Bloqueo eliminado", "success");
+    cargarBlocks();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
 
 async function renderCitas(filtroEstado = "") {
   const main = document.getElementById("main-content");
@@ -605,8 +882,9 @@ async function renderCitas(filtroEstado = "") {
       <div class="card-toolbar">
         <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Estado:</label>
         <select id="filtro-estado">
-          <option value="">Todos</option>
-          <option value="programada"  ${filtroEstado==="programada" ?"selected":""}>Programada</option>
+          <option value="">Activas (pendiente/confirmada)</option>
+          <option value="pendiente"  ${filtroEstado==="pendiente" ?"selected":""}>Pendiente</option>
+          <option value="confirmada" ${filtroEstado==="confirmada" ?"selected":""}>Confirmada</option>
           <option value="cancelada"   ${filtroEstado==="cancelada"  ?"selected":""}>Cancelada</option>
           <option value="completada"  ${filtroEstado==="completada" ?"selected":""}>Completada</option>
         </select>
@@ -627,7 +905,9 @@ async function renderCitas(filtroEstado = "") {
 
   try {
     const { datos } = await apiFetch(`${API.citas}/citas`);
-    let filtradas = filtroEstado ? datos.filter(c => c.estado === filtroEstado) : datos;
+    let filtradas = filtroEstado
+      ? datos.filter(c => c.estado === filtroEstado)
+      : datos.filter(c => c.estado === "pendiente" || c.estado === "confirmada");
 
     if (currentUser?.rol === "medico") {
       filtradas = filtradas.filter(c =>
@@ -646,13 +926,16 @@ async function renderCitas(filtroEstado = "") {
     tbody.innerHTML = filtradas.map(c => `
       <tr>
         <td>${c.id}</td>
-        <td>${fmtFecha(c.fecha_hora)}</td>
+        <td>${fmtDate(c.fecha)} ${String(c.hora_inicio || "").substring(0,5)} - ${String(c.hora_fin || "").substring(0,5)}</td>
         <td>${c.paciente}</td>
         <td>${c.medico}</td>
         <td>${badge(c.estado, c.estado)}</td>
-        <td>${c.notas ? `<span title="${c.notas}" style="cursor:help">ðŸ“</span>` : "â€”"}</td>
+        <td>${cleanNota(c.notas)}</td>
         <td class="td-actions">
-          ${c.estado === "programada" ? `
+          ${c.estado === "pendiente" ? `
+            <button class="btn btn-success btn-sm" onclick="confirmarCita(${c.id})">Confirmar</button>
+            <button class="btn btn-danger btn-sm" onclick="cancelarCita(${c.id})">Cancelar</button>
+          ` : c.estado === "confirmada" ? `
             <button class="btn btn-success btn-sm" onclick="completarCita(${c.id})">Completar</button>
             <button class="btn btn-danger btn-sm" onclick="cancelarCita(${c.id})">Cancelar</button>
           ` : `<span style="color:var(--text-muted);font-size:12px">${c.estado}</span>`}
@@ -721,14 +1004,22 @@ async function guardarCita() {
     toast("Completa todos los campos requeridos", "error"); return;
   }
 
+  const [fecha, horaStr] = fecha_hora.split('T');
+  const hora_inicio = horaStr.slice(0, 5);
+  const [h, m] = hora_inicio.split(':').map(Number);
+  const totalMin = h * 60 + m + 30;
+  const hora_fin = String(Math.floor(totalMin / 60)).padStart(2, '0') + ':' + String(totalMin % 60).padStart(2, '0');
+
   try {
     await apiFetch(`${API.citas}/citas`, {
       method: "POST",
       body: JSON.stringify({
         paciente_id: parseInt(paciente_id),
         medico_id:   parseInt(medico_id),
-        fecha_hora:  new Date(fecha_hora).toISOString(),
-        notas:       notas || null,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        notas: notas || null,
       }),
     });
     toast("Cita agendada correctamente", "success");
@@ -750,6 +1041,17 @@ async function cancelarCita(id) {
   }
 }
 
+async function confirmarCita(id) {
+  if (!confirm("Confirmar esta cita?")) return;
+  try {
+    await apiFetch(`${API.citas}/citas/${id}/confirmar`, { method: "PATCH" });
+    toast("Cita confirmada", "success");
+    renderCitas();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
 async function completarCita(id) {
   if (!confirm("Â¿Marcar esta cita como completada?")) return;
   try {
@@ -764,7 +1066,68 @@ async function completarCita(id) {
 /* â”€â”€ Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 initAuth();
 
-function renderHistorial() {
+async function renderHistorial() {
   const main = document.getElementById("main-content");
-  main.innerHTML = `<div class="card"><div class="empty">El historial detallado se mostrara en la siguiente iteracion.</div></div>`;
+  main.innerHTML = `
+    <div class="card">
+      <div class="card-toolbar">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted)">Estado:</label>
+        <select id="filtro-h-estado">
+          <option value="">Todos los eventos</option>
+          <option value="completada">Completada</option>
+          <option value="cancelada">Cancelada</option>
+          <option value="confirmada">Confirmada</option>
+          <option value="pendiente">Pendiente</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="btn-recargar-h">Recargar</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>ID evento</th><th>Cita</th><th>Accion</th><th>Estado</th><th>Fecha</th><th>Hora</th><th>Detalle</th>
+        </tr></thead>
+        <tbody id="tbody-historial">${tableLoading(7)}</tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById("filtro-h-estado").addEventListener("change", cargarHistorial);
+  document.getElementById("btn-recargar-h").addEventListener("click", cargarHistorial);
+  await cargarHistorial();
+}
+
+async function cargarHistorial() {
+  const tbody = document.getElementById("tbody-historial");
+  if (!tbody) return;
+  tbody.innerHTML = tableLoading(7);
+
+  const estadoSel = document.getElementById("filtro-h-estado")?.value || "";
+  const params = new URLSearchParams();
+  params.set("limit", "300");
+  if (estadoSel) params.set("estado", estadoSel);
+
+  if (currentUser?.rol === "medico") params.set("medico_id", String(currentUser.id));
+  if (currentUser?.rol === "paciente") params.set("paciente_id", String(currentUser.id));
+
+  try {
+    const { datos } = await apiFetch(`${API.historial}/historial?${params.toString()}`);
+    const rows = datos || [];
+    if (!rows.length) {
+      tbody.innerHTML = tableEmpty(7, "Sin eventos en historial");
+      return;
+    }
+
+    tbody.innerHTML = rows.map(h => `
+      <tr>
+        <td>${h.id}</td>
+        <td>${h.cita_id}</td>
+        <td>${h.accion || "-"}</td>
+        <td>${badge(h.estado, h.estado)}</td>
+        <td>${fmtDate(h.fecha)}</td>
+        <td>${(h.hora_inicio || "").substring(0,5)} - ${(h.hora_fin || "").substring(0,5)}</td>
+        <td>${h.detalle || "-"}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    tbody.innerHTML = tableEmpty(7, err.message || "Error cargando historial");
+  }
 }

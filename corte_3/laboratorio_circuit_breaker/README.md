@@ -3,7 +3,6 @@
 Este laboratorio documenta la implementación de un patrón de diseño **Circuit Breaker** (Cortocircuito) para mejorar la resiliencia en una arquitectura de microservicios.
 
 ---
-![](<evidencias/FASE 1/Consola mostrando los reintentos y el circuit breaker abierto.png>)
 
 ## **FASE 1 – OBSERVAR**
 
@@ -41,10 +40,11 @@ Consola mostrando los reintentos y el circuit breaker abierto
     Cuando un servicio falla mientras otro sigue operando, la funcionalidad específica deja de estar disponible, pero el resto de la aplicación permanece funcional. De esta manera, el sistema entrega una respuesta de error controlada para 
     la sección afectada sin necesidad de que la plataforma completa deje de responder al usuario.
 
-![](<evidencias/FASE 2/Implementación en servicio de usuarios con circuit breaker abierto.png>)
+![](<evidencias/FASE 2/Implementación en servicio de usuarioscon circuit breaker abierto1.png>)
 Implementación en servicio de usuarios con circuit breaker abierto
 
 ![](<evidencias/FASE 2/Consola mostrando los reintentos y el circuit breaker abierto.png>)
+Consola mostrando los reintentos y el circuit breaker abierto
 
 
 ![](<evidencias/FASE 2/Servicio de mascotas funcionando así el servicio de usuarios esté en falla.png>)
@@ -61,7 +61,7 @@ Servicio de mascotas funcionando así el servicio de usuarios esté en falla
     Si la petición de prueba en estado Half-Open falla, el circuito vuelve inmediatamente al estado Abierto y el temporizador de espera se reinicia para seguir protegiendo el sistema.
 
 
-![](<evidencias/FASE 3/Consola mostrando la implementación de la investigación de Half-open.png>)
+![](<evidencias/FASE 3/Consola mostrando la implementación de la investigación de Half-open .png>)
 Consola mostrando la implementación de la investigación de Half-open 
 
 ---
@@ -73,13 +73,13 @@ Se implementó la lógica de recuperación mediante una espera controlada y una 
 *   **Espera controlada:** El sistema registra el tiempo del último fallo y lo compara con el tiempo actual para decidir si permite un reintento.
 *   **Decisión:** Si la conexión tiene éxito en estado Half-Open, el circuito se cierra automáticamente (estado normal). Si vuelve a fallar, el circuito permanece abierto.
 
-![](<evidencias/FASE 4/Servicio de usuarios sin conexión .png>)
+![](<evidencias/FASE 4/Servicio de usuarios sin conexión png.png>)
 Servicio de usuarios sin conexión 
 
 ![](<evidencias/FASE 4/Consola mostrando como después de que el circuito está cerrado se esperan 20 segundos y cuando el servicio está disponible de nuevo se recupera con Half-open.png>)
 Consola mostrando como después de que el circuito está cerrado se esperan 20 segundos y cuando el servicio está disponible de nuevo se recupera con Half-open
 
-![](<evidencias/FASE 4/Servicio de usuarios de nuevo con conexión .png >)
+![](<evidencias/FASE 4/Servicio de usuarios de nuevo con conexión .png>)
 Servicio de usuarios de nuevo con conexión
 
 
@@ -92,18 +92,21 @@ Se probó el sistema bajo los siguientes escenarios:
 2.  **Servicio caído:** El Gateway detecta los fallos y los registra secuencialmente.
 3.  **Circuito abierto:** Al tercer error consecutivo, las peticiones se bloquean instantáneamente.
 4.  **Recuperación del servicio:** Tras el tiempo de espera y el reinicio del backend, el sistema restauró la comunicación de forma autónoma.
-![](<evidencias/FASE 5/Servicio funcionando.png>)
 
-![](<evidencias/FASE 5/Servicio simulando fallo.png >)
+
+![](<evidencias/FASE 5/Servicio funcionando.png>)
+Servicio funcionando
+
+![](<evidencias/FASE 5/Servicio simulando fallo .png>)
 Servicio simulando fallo
 
-![](<evidencias/FASE 5/Servicio abre circuit breaker.png >)
+![](<evidencias/FASE 5/Servicio abre circuit breaker .png>)
 Servicio abre circuit breaker
 
-![](<evidencias/FASE 5/Servicio recuperado con Half-open con 20 segundos de espera.png >)
+![](<evidencias/FASE 5/Servicio recuperado con Half-open con 20 segundos de espera.png>)
 Servicio recuperado con Half-open con 20 segundos de espera
 
-![](<evidencias/FASE 5/Consola mostrando el proceso que se registra en la validación.png >)
+![](<evidencias/FASE 5/Consola mostrando el proceso que se registra en la validación..png>)
 Consola mostrando el proceso que se registra en la validación.png
 
 

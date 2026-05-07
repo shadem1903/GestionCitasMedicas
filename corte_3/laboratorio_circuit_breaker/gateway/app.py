@@ -14,22 +14,27 @@ def usuarios():
 
 @app.route("/mascotas")
 def mascotas():
-   global fallos_backend, circuito_abierto
-   if circuito_abierto:
-        return {"error": "Servicio temporalmente bloqueado"}, 503
-   try:
-        response = requests.get("http://backend:5000/mascotas", timeout=2)
-        fallos_backend = 0
-        return response.json()
-   except:
-        fallos_backend += 1
-        print(f"Fallo número {fallos_backend}", flush=True)
+    data, status = safe_request("mascotas", "http://backend:5000/mascotas")
+    return jsonify(data), status
 
-        if fallos_backend >= 3:
-            circuito_abierto = True
-            print("Circuito abierto", flush=True)
+# @app.route("/mascotas")
+# def mascotas():
+#    global fallos_backend, circuito_abierto
+#    if circuito_abierto:
+#         return {"error": "Servicio temporalmente bloqueado"}, 503
+#    try:
+#         response = requests.get("http://backend:5000/mascotas", timeout=2)
+#         fallos_backend = 0
+#         return response.json()
+#    except:
+#         fallos_backend += 1
+#         print(f"Fallo número {fallos_backend}", flush=True)
 
-        return {"error": "Servicio no disponible"}, 503
+#         if fallos_backend >= 3:
+#             circuito_abierto = True
+#             print("Circuito abierto", flush=True)
+
+#         return {"error": "Servicio no disponible"}, 503
    
 #  Estados iniciales de los servicios
 #circuit_states = {

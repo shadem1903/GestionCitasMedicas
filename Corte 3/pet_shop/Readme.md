@@ -40,7 +40,7 @@ Con la implementación actual pasa esto:
 
    Cada circuito es independiente. El sistema no se cae completo por culpa de una sola pieza — que es justo el punto de tener microservicios.
 
-   ![](<Evidencias/Foto 6.png.png>)
+   ![](<Evidencias/Foto 6.png>)
 
 
 ## Fase 3

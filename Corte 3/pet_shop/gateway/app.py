@@ -104,7 +104,8 @@ def get_mascotas_por_usuario(id):
     global fallos_usuarios, circuito_usuarios, tiempo_apertura_usuarios
     permite, es_prueba = circuito_permite_paso(circuito_usuarios, tiempo_apertura_usuarios)
     if not permite:
-        return {"error": "Servicio de usuarios temporalmente bloqueado"}, 503
+        print(f"[GATEWAY], Circuito usuarios abierto, usando fallback para usuario {id}", flush=True)
+        return fallback_mascotas_por_usuario(id)
     try:
         response = requests.get(f"http://usuarios:5000/usuarios/{id}/mascotas", timeout=2)
         fallos_usuarios = 0
@@ -122,7 +123,20 @@ def get_mascotas_por_usuario(id):
             circuito_usuarios = True
             tiempo_apertura_usuarios = time.time()
             print("Circuito de usuarios abierto", flush=True)
-        return {"error": "Servicio de usuarios no disponible"}, 503
+        print(f"[GATEWAY], Usuarios caído, usando fallback para usuario {id}", flush=True)
+        return fallback_mascotas_por_usuario(id)
+
+def fallback_mascotas_por_usuario(id):
+    try:
+        print(f"[GATEWAY], Fallback: llamando directo al backend para mascotas del usuario {id}", flush=True)
+        response = requests.get(f"http://backend:5000/mascotas?usuario_id={id}", timeout=2)
+        if response.status_code != 200:
+            return jsonify({"error": "No se pudieron obtener las mascotas"}), 502
+        print(f"[GATEWAY], Fallback exitoso, mascotas del usuario {id} obtenidas desde backend", flush=True)
+        return jsonify({"usuario_id": id, "mascotas": response.json(), "fuente": "fallback"})
+    except:
+        print(f"[GATEWAY], Fallback también falló para usuario {id}", flush=True)
+        return jsonify({"error": "Servicio no disponible"}), 503
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

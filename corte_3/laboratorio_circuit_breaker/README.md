@@ -16,9 +16,11 @@ Cada vez se hace una petición al servicio de mascotas, el gateway intenta conec
 Mi sistema primero **insiste** y luego se **protege**. Durante las primeras tres peticiones, insisto en conectar con el backend para intentar superar un fallo temporal; sin embargo, al agotar esos intentos, activo el *circuit breaker* para protegerme, bloqueando el tráfico de forma permanente para ahorrar recursos y evitar esperas inútiles en un servicio que ya doy por caído.
 
 ![](<evidencias/FASE 1/Servicio mascotas con circuit breaker abierto.png>)
+
 Servicio mascotas con circuit breaker abierto
 
 ![](<evidencias/FASE 1/Consola mostrando los reintentos y el circuit breaker abierto.png>)
+
 Consola mostrando los reintentos y el circuit breaker abierto
 
 ---
@@ -41,13 +43,16 @@ Consola mostrando los reintentos y el circuit breaker abierto
     la sección afectada sin necesidad de que la plataforma completa deje de responder al usuario.
 
 ![](<evidencias/FASE 2/Implementación en servicio de usuarioscon circuit breaker abierto1.png>)
+
 Implementación en servicio de usuarios con circuit breaker abierto
 
 ![](<evidencias/FASE 2/Consola mostrando los reintentos y el circuit breaker abierto.png>)
+
 Consola mostrando los reintentos y el circuit breaker abierto
 
 
 ![](<evidencias/FASE 2/Servicio de mascotas funcionando así el servicio de usuarios esté en falla.png>)
+
 Servicio de mascotas funcionando así el servicio de usuarios esté en falla
 ---
 
@@ -62,6 +67,7 @@ Servicio de mascotas funcionando así el servicio de usuarios esté en falla
 
 
 ![](<evidencias/FASE 3/Consola mostrando la implementación de la investigación de Half-open .png>)
+
 Consola mostrando la implementación de la investigación de Half-open 
 
 ---
@@ -74,12 +80,15 @@ Se implementó la lógica de recuperación mediante una espera controlada y una 
 *   **Decisión:** Si la conexión tiene éxito en estado Half-Open, el circuito se cierra automáticamente (estado normal). Si vuelve a fallar, el circuito permanece abierto.
 
 ![](<evidencias/FASE 4/Servicio de usuarios sin conexión png.png>)
+
 Servicio de usuarios sin conexión 
 
 ![](<evidencias/FASE 4/Consola mostrando como después de que el circuito está cerrado se esperan 20 segundos y cuando el servicio está disponible de nuevo se recupera con Half-open.png>)
+
 Consola mostrando como después de que el circuito está cerrado se esperan 20 segundos y cuando el servicio está disponible de nuevo se recupera con Half-open
 
 ![](<evidencias/FASE 4/Servicio de usuarios de nuevo con conexión .png>)
+
 Servicio de usuarios de nuevo con conexión
 
 
@@ -95,18 +104,23 @@ Se probó el sistema bajo los siguientes escenarios:
 
 
 ![](<evidencias/FASE 5/Servicio funcionando.png>)
+
 Servicio funcionando
 
 ![](<evidencias/FASE 5/Servicio simulando fallo .png>)
+
 Servicio simulando fallo
 
 ![](<evidencias/FASE 5/Servicio abre circuit breaker .png>)
+
 Servicio abre circuit breaker
 
 ![](<evidencias/FASE 5/Servicio recuperado con Half-open con 20 segundos de espera.png>)
+
 Servicio recuperado con Half-open con 20 segundos de espera
 
 ![](<evidencias/FASE 5/Consola mostrando el proceso que se registra en la validación..png>)
+
 Consola mostrando el proceso que se registra en la validación.png
 
 

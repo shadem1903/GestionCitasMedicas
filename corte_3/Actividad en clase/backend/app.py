@@ -54,6 +54,7 @@ def listar_mascotas():
     cursor.execute("SELECT * FROM mascotas")
     mascotas = cursor.fetchall()
     connection.close()
+    print("[MASCOTAS], Extrayendo información de mascotas.",flush=True);
     return {"mascotas": mascotas}
 
 @app.route("/health")

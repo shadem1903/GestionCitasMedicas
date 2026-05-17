@@ -7,7 +7,7 @@ services:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_USER: admin
       MYSQL_PASSWORD: admin123
-      MYSQL_DATABASE: citas_db
+      MYSQL_DATABASE: db_usuarios
     ports:
       - "3307:3306"
     volumes:
@@ -31,7 +31,7 @@ services:
       DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: citas_db
+      DB_NAME: db_usuarios
     depends_on:
       mysql:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
       DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: citas_db
+      DB_NAME: db_especialidades
     depends_on:
       mysql:
         condition: service_healthy
@@ -65,15 +65,18 @@ services:
       DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: citas_db
+      DB_NAME: db_disponibilidad
       MS_USUARIOS_URL: http://ms-usuarios:3001
       MS_ESPECIALIDADES_URL: http://ms-especialidades:3007
+      MS_CITAS_URL: http://ms-citas:3004
     depends_on:
       mysql:
         condition: service_healthy
       ms-usuarios:
         condition: service_started
       ms-especialidades:
+        condition: service_started
+      ms-citas:
         condition: service_started
     networks:
       - citas_net
@@ -88,7 +91,7 @@ services:
       DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: citas_db
+      DB_NAME: db_citas
       MS_USUARIOS_URL: http://ms-usuarios:3001
       MS_DISPONIBILIDAD_URL: http://ms-disponibilidad:3003
       MS_HISTORIAL_URL: http://ms-historial:3005
@@ -96,8 +99,6 @@ services:
       mysql:
         condition: service_healthy
       ms-usuarios:
-        condition: service_started
-      ms-disponibilidad:
         condition: service_started
       ms-historial:
         condition: service_started
@@ -114,7 +115,7 @@ services:
       DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: citas_db
+      DB_NAME: db_historial
     depends_on:
       mysql:
         condition: service_healthy
@@ -155,7 +156,7 @@ services:
       DB_PORT: 3306
       DB_USER: admin
       DB_PASSWORD: admin123
-      DB_NAME: citas_db
+      DB_NAME: db_usuarios
       JWT_SECRET: super_secret_dev_key
       JWT_EXPIRES: 8h
     depends_on:

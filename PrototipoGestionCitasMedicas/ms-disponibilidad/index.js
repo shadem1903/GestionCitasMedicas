@@ -9,9 +9,29 @@ app.use(express.json());
 
 const SERVICIO = "ms-disponibilidad";
 
+let serviceLogs = [];
+let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
+
 function log(nivel, mensaje) {
-  console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
+  const line = `[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`;
+  console.log(line);
+  serviceLogs.push(line);
+  if (serviceLogs.length > 100) serviceLogs.shift();
 }
+
+// Middleware de tiempos de respuesta
+app.use((req, res, next) => {
+  totalRequests++;
+  const start = Date.now();
+  res.on("finish", () => {
+    const elapsed = Date.now() - start;
+    avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
+  });
+  next();
+});
 
 // ── Circuit Breaker ──────────────────────────────────────────
 class CircuitBreaker {
@@ -152,12 +172,28 @@ app.get("/health", (req, res) => {
   res.json({
     servicio: SERVICIO,
     estado: "ok",
+    response_time_ms: Math.round(avgResponseTime),
     timestamp: new Date(),
     circuit_breakers: {
       "ms-usuarios":       cbUsuarios.estado,
       "ms-especialidades": cbEspecialidades.estado,
       "ms-citas":          cbCitas.estado,
     },
+  });
+});
+
+app.get("/logs", (req, res) => {
+  res.json(serviceLogs);
+});
+
+app.get("/metrics", (req, res) => {
+  res.json({
+    servicio: SERVICIO,
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+    total_requests: totalRequests,
+    error_count: errorCount,
+    avg_response_time_ms: Math.round(avgResponseTime)
   });
 });
 

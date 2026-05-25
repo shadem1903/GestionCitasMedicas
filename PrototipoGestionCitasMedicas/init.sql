@@ -42,6 +42,15 @@ CREATE TABLE IF NOT EXISTS usuarios (
   CONSTRAINT chk_rol CHECK (rol IN ('paciente', 'medico', 'admin'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS notificaciones (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id  INT NOT NULL,
+  mensaje     VARCHAR(255) NOT NULL,
+  leida       BOOLEAN NOT NULL DEFAULT FALSE,
+  creado_en   TIMESTAMP NOT NULL DEFAULT NOW(),
+  INDEX idx_notif_usuario (usuario_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ════════════════════════════════════════════════════════════
 -- MS-ESPECIALIDADES  (db_especialidades)
 -- ════════════════════════════════════════════════════════════

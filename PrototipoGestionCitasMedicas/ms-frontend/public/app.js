@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    GestiÃ³n de Citas MÃ©dicas â€” Frontend SPA
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
@@ -145,13 +145,26 @@ function applyRoleUI() {
 
   const label = document.getElementById("current-user-label");
   const btnLogout = document.getElementById("btn-logout");
+  const banner = document.getElementById("disabled-banner");
+  const btnNotif = document.getElementById("notif-wrapper");
+
   if (currentUser) {
     label.textContent = `${currentUser.nombre} (${currentUser.rol})`;
     label.classList.remove("hidden");
     btnLogout.classList.remove("hidden");
+    btnNotif.classList.remove("hidden");
+    if (!currentUser.activo) {
+      banner.classList.remove("hidden");
+    } else {
+      banner.classList.add("hidden");
+    }
+    startNotifPolling();
   } else {
     label.classList.add("hidden");
     btnLogout.classList.add("hidden");
+    btnNotif.classList.add("hidden");
+    banner.classList.add("hidden");
+    stopNotifPolling();
   }
 }
 
@@ -183,6 +196,10 @@ document.getElementById("modal-overlay").addEventListener("click", e => {
 });
 
 document.getElementById("btn-nuevo").addEventListener("click", () => {
+  if (currentUser && !currentUser.activo && currentUser.rol !== "admin") {
+    toast("Tu cuenta está deshabilitada", "error");
+    return;
+  }
   const actions = {
     usuarios:       openFormUsuario,
     especialidades: openFormEspecialidad,
@@ -192,6 +209,65 @@ document.getElementById("btn-nuevo").addEventListener("click", () => {
   actions[currentSection]?.();
 });
 document.getElementById("btn-logout").addEventListener("click", logout);
+
+/* ── Notificaciones ───────────────────────────────────────── */
+let notifTimer = null;
+function startNotifPolling() {
+  cargarNotificaciones();
+  if (!notifTimer) notifTimer = setInterval(cargarNotificaciones, 10000);
+}
+function stopNotifPolling() {
+  if (notifTimer) clearInterval(notifTimer);
+  notifTimer = null;
+}
+
+async function cargarNotificaciones() {
+  if (!currentUser) return;
+  try {
+    const data = await apiFetch(`${API.usuarios}/usuarios/${currentUser.id}/notificaciones`);
+    const list = document.getElementById("notif-list");
+    const badge = document.getElementById("notif-badge");
+    if (!data.length) {
+      list.innerHTML = "<div class='empty'>No tienes notificaciones</div>";
+      badge.classList.add("hidden");
+      return;
+    }
+    const unread = data.filter(n => !n.leida).length;
+    if (unread > 0) {
+      badge.textContent = unread > 9 ? "+9" : unread;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+    list.innerHTML = data.map(n => `
+      <div class="notif-item ${n.leida ? '' : 'unread'}" onclick="marcarNotifLeida(${n.id})">
+        ${n.mensaje}
+        <span class="date">${fmtFecha(n.creado_en)}</span>
+      </div>
+    `).join("");
+  } catch (err) {
+    console.error("Error loading notifications:", err);
+  }
+}
+
+async function marcarNotifLeida(notif_id) {
+  try {
+    await apiFetch(`${API.usuarios}/usuarios/${currentUser.id}/notificaciones/${notif_id}/read`, { method: "PUT" });
+    cargarNotificaciones();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+document.getElementById("btn-notif").addEventListener("click", () => {
+  document.getElementById("notif-dropdown").classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  const wrp = document.getElementById("notif-wrapper");
+  if (wrp && !wrp.contains(e.target)) {
+    document.getElementById("notif-dropdown")?.classList.add("hidden");
+  }
+});
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    DASHBOARD
@@ -210,35 +286,89 @@ async function renderDashboard() {
     </div>
     <p class="section-title" style="margin-top:8px">Estado de microservicios</p>
     <div class="services-grid" id="services-grid">
-      ${Object.entries({ "MS-1 Usuarios":"3001","MS-3 Disponibilidad":"3003","MS-4 Citas":"3004","MS-7 Especialidades":"3007" })
+      ${Object.entries({ "MS-Gateway":"8080", "MS-1 Usuarios":"3001","MS-3 Disponibilidad":"3003","MS-4 Citas":"3004","MS-5 Historial":"3005","MS-7 Especialidades":"3007" })
         .map(([name,port]) => `
           <div class="service-card">
             <div class="service-indicator loading" id="ind-${port}"></div>
             <div class="service-info">
               <div class="name">${name}</div>
-              <div class="port">:${port}</div>
+              <div class="port" id="rt-${port}">:${port}</div>
             </div>
           </div>`).join("")}
+    </div>
+    
+    <div id="admin-metrics-wrapper" class="hidden" style="margin-top:20px;">
+      <p class="section-title">Monitor de Rendimiento y Salud (Métricas)</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Servicio</th>
+            <th>Estado</th>
+            <th>Uptime (s)</th>
+            <th>Uso de Memoria</th>
+            <th>Peticiones Totales</th>
+            <th>Errores HTTP (4xx/5xx)</th>
+            <th>Tiempo Promedio (ms)</th>
+          </tr>
+        </thead>
+        <tbody id="metrics-tbody">
+          <tr><td colspan="7" style="text-align:center">Cargando métricas...</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;text-align:right">
+        <button class="btn btn-sm btn-ghost" onclick="fetchMetrics()">Actualizar Métricas</button>
+      </div>
+    </div>
+
+    <div id="admin-logs-wrapper" class="hidden">
+      <p class="section-title" style="margin-top:20px">Logs en tiempo real (Últimos 100 por servicio)</p>
+      <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <select id="log-service-selector" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border)">
+          <option value="/logs">MS-Gateway</option>
+          <option value="/api/usuarios/logs">MS-1 Usuarios</option>
+          <option value="/api/disponibilidad/logs">MS-3 Disponibilidad</option>
+          <option value="/api/citas/logs">MS-4 Citas</option>
+          <option value="/api/historial/logs">MS-5 Historial</option>
+          <option value="/api/especialidades/logs">MS-7 Especialidades</option>
+        </select>
+        <button class="btn btn-sm btn-ghost" onclick="fetchServiceLogs()">Actualizar Logs</button>
+      </div>
+      <div id="service-logs" class="logs-container">Cargando logs...</div>
     </div>`;
 
   // Health checks en paralelo
   const healthChecks = [
-    { name: "MS-1 Usuarios",        port: "3001", url: `${API.usuarios}/health` },
-    { name: "MS-3 Disponibilidad",  port: "3003", url: `${API.disponibilidad}/health` },
-    { name: "MS-4 Citas",           port: "3004", url: `${API.citas}/health` },
-    { name: "MS-7 Especialidades",  port: "3007", url: `${API.especialidades}/health` },
+    { name: "MS-Gateway",           port: "8080", url: `http://localhost:8080/health` },
+    { name: "MS-1 Usuarios",        port: "3001", url: `${API.usuarios.replace('/api/usuarios','')}/health` },
+    { name: "MS-3 Disponibilidad",  port: "3003", url: `${API.disponibilidad.replace('/api/disponibilidad','')}/health` },
+    { name: "MS-4 Citas",           port: "3004", url: `${API.citas.replace('/api/citas','')}/health` },
+    { name: "MS-5 Historial",       port: "3005", url: `${API.historial.replace('/api/historial','')}/health` },
+    { name: "MS-7 Especialidades",  port: "3007", url: `${API.especialidades.replace('/api/especialidades','')}/health` },
   ];
 
   healthChecks.forEach(async ({ port, url }) => {
     const ind = document.getElementById(`ind-${port}`);
+    const rt  = document.getElementById(`rt-${port}`);
     if (!ind) return;
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
-      ind.className = `service-indicator ${r.ok ? "ok" : "error"}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      const data = await res.json();
+      ind.className = `service-indicator ${res.ok ? "ok" : "error"}`;
+      if (res.ok && data.response_time_ms !== undefined) {
+        rt.textContent = `:${port} — ${data.response_time_ms}ms`;
+      }
     } catch {
       ind.className = "service-indicator error";
     }
   });
+
+  if (currentUser?.rol === "admin") {
+    document.getElementById("admin-logs-wrapper").classList.remove("hidden");
+    document.getElementById("admin-metrics-wrapper").classList.remove("hidden");
+    document.getElementById("log-service-selector").addEventListener("change", fetchServiceLogs);
+    fetchServiceLogs();
+    fetchMetrics();
+  }
 
   // Conteos en paralelo
   const counts = await Promise.allSettled([
@@ -250,9 +380,9 @@ async function renderDashboard() {
 
   const grid = document.getElementById("stats-grid");
   const labels = ["Usuarios","Especialidades","Disponibilidades","Citas"];
-  const subs   = ["pacientes y mÃ©dicos","registradas","bloques activos","total registradas"];
+  const subs   = ["pacientes y médicos","registradas","bloques activos","total registradas"];
   grid.innerHTML = counts.map((r, i) => {
-    const val = r.status === "fulfilled" ? r.value.total : "â€”";
+    const val = r.status === "fulfilled" ? r.value.total : "—";
     return `<div class="stat-card">
       <div class="label">${labels[i]}</div>
       <div class="value">${val}</div>
@@ -260,6 +390,72 @@ async function renderDashboard() {
     </div>`;
   }).join("");
 }
+
+window.fetchServiceLogs = async function() {
+  const path = document.getElementById("log-service-selector").value;
+  const container = document.getElementById("service-logs");
+  container.innerHTML = "Cargando logs...";
+  try {
+    const res = await fetch(`http://localhost:8080${path}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const logs = await res.json();
+    if (!logs.length) {
+      container.innerHTML = "No hay logs recientes.";
+      return;
+    }
+    container.innerHTML = logs.map(line => {
+      let cls = "log-line";
+      if (line.includes("[ERROR]")) cls += " error";
+      if (line.includes("[WARN]")) cls += " warn";
+      return `<div class="${cls}">${line.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+    }).join("");
+    container.scrollTop = container.scrollHeight;
+  } catch (err) {
+    container.innerHTML = `<div class="log-line error">Error al obtener logs: ${err.message}</div>`;
+  }
+};
+
+window.fetchMetrics = async function() {
+  const metricsEndpoints = [
+    { name: "MS-Gateway", url: "http://localhost:8080/metrics" },
+    { name: "MS-1 Usuarios", url: "http://localhost:8080/api/usuarios/metrics" },
+    { name: "MS-3 Disponibilidad", url: "http://localhost:8080/api/disponibilidad/metrics" },
+    { name: "MS-4 Citas", url: "http://localhost:8080/api/citas/metrics" },
+    { name: "MS-5 Historial", url: "http://localhost:8080/api/historial/metrics" },
+    { name: "MS-7 Especialidades", url: "http://localhost:8080/api/especialidades/metrics" }
+  ];
+
+  const tbody = document.getElementById("metrics-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center">Actualizando...</td></tr>`;
+
+  try {
+    const results = await Promise.allSettled(metricsEndpoints.map(e => fetch(e.url).then(r => r.json())));
+    tbody.innerHTML = results.map((r, i) => {
+      const name = metricsEndpoints[i].name;
+      if (r.status === "fulfilled" && r.value) {
+        const m = r.value;
+        return `<tr>
+          <td style="font-weight:bold">${name}</td>
+          <td><span style="background-color:var(--success);color:white;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:bold;">Activo</span></td>
+          <td>${m.uptime_seconds || 0}s</td>
+          <td>${m.memory_mb || 0} MB</td>
+          <td>${m.total_requests || 0}</td>
+          <td>${m.error_count > 0 ? "<span style='color:var(--danger)'>" + m.error_count + "</span>" : "0"}</td>
+          <td>${m.avg_response_time_ms || 0} ms</td>
+        </tr>`;
+      } else {
+        return `<tr>
+          <td style="font-weight:bold">${name}</td>
+          <td><span style="background-color:var(--danger);color:white;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:bold;">Apagado</span></td>
+          <td colspan="5" style="color:var(--danger)">El servicio no responde</td>
+        </tr>`;
+      }
+    }).join("");
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:var(--danger)">Error cargando métricas</td></tr>`;
+  }
+};
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    USUARIOS
@@ -306,7 +502,7 @@ async function renderUsuarios(filtroRol = "") {
         <td class="td-actions">
           ${u.activo
             ? `<button class="btn btn-danger btn-sm" onclick="desactivarUsuario(${u.id})">Desactivar</button>`
-            : `<span style="color:var(--text-muted);font-size:12px">Desactivado</span>`}
+            : `<button class="btn btn-success btn-sm" onclick="activarUsuario(${u.id})">Activar</button>`}
         </td>
       </tr>`).join("");
   } catch (err) {
@@ -359,10 +555,21 @@ async function guardarUsuario() {
 }
 
 async function desactivarUsuario(id) {
-  if (!confirm("Â¿Desactivar este usuario?")) return;
+  if (!confirm("¿Desactivar este usuario?")) return;
   try {
     await apiFetch(`${API.usuarios}/usuarios/${id}`, { method: "DELETE" });
     toast("Usuario desactivado", "success");
+    renderUsuarios();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function activarUsuario(id) {
+  if (!confirm("¿Activar este usuario?")) return;
+  try {
+    await apiFetch(`${API.usuarios}/usuarios/${id}/activar`, { method: "PATCH" });
+    toast("Usuario activado", "success");
     renderUsuarios();
   } catch (err) {
     toast(err.message, "error");
@@ -933,11 +1140,11 @@ async function renderCitas(filtroEstado = "") {
         <td>${cleanNota(c.notas)}</td>
         <td class="td-actions">
           ${c.estado === "pendiente" ? `
-            <button class="btn btn-success btn-sm" onclick="confirmarCita(${c.id})">Confirmar</button>
-            <button class="btn btn-danger btn-sm" onclick="cancelarCita(${c.id})">Cancelar</button>
+            <button class="btn btn-success btn-sm" onclick="confirmarCita(${c.id})" ${!currentUser.activo ? "disabled" : ""}>Confirmar</button>
+            <button class="btn btn-danger btn-sm" onclick="cancelarCita(${c.id})" ${!currentUser.activo ? "disabled" : ""}>Cancelar</button>
           ` : c.estado === "confirmada" ? `
-            <button class="btn btn-success btn-sm" onclick="completarCita(${c.id})">Completar</button>
-            <button class="btn btn-danger btn-sm" onclick="cancelarCita(${c.id})">Cancelar</button>
+            <button class="btn btn-success btn-sm" onclick="completarCita(${c.id})" ${!currentUser.activo ? "disabled" : ""}>Completar</button>
+            <button class="btn btn-danger btn-sm" onclick="cancelarCita(${c.id})" ${!currentUser.activo ? "disabled" : ""}>Cancelar</button>
           ` : `<span style="color:var(--text-muted);font-size:12px">${c.estado}</span>`}
         </td>
       </tr>`).join("");

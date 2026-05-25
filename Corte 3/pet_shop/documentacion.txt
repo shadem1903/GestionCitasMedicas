@@ -1,0 +1,161 @@
+================================================================
+        PET SHOP - DOCUMENTACIÓN DE IMPLEMENTACIÓN
+================================================================
+
+DESCRIPCIÓN GENERAL
+-------------------
+El proyecto está compuesto por 3 microservicios que se comunican
+entre sí a través de HTTP. Cada servicio implementa de forma
+consistente: logs con print, manejo de errores y timeouts.
+
+
+================================================================
+1. LOGS
+================================================================
+
+Se utiliza print() con el parámetro flush=True en los 3 servicios
+para que los mensajes aparezcan de inmediato en la consola
+(importante dentro de contenedores Docker).
+
+Formato del log:
+    print("[SERVICIO], mensaje", flush=True)
+
+Ejemplos por servicio:
+
+  [BACKEND]
+    print("[BACKEND], GET /mascotas", flush=True)
+    print("[BACKEND], mascota 1 obtenida correctamente", flush=True)
+    print("[BACKEND], mascota 1 no encontrada", flush=True)
+    print("[BACKEND], Llamando a usuarios para id 1...", flush=True)
+    print("[BACKEND], timeout No de intentos: 1", flush=True)
+
+  [USUARIOS]
+    print("[USUARIOS], GET /usuarios", flush=True)
+    print("[USUARIOS], usuario 2 obtenido correctamente", flush=True)
+    print("[USUARIOS], Llamando al backend para mascotas del usuario 2...", flush=True)
+    print("[USUARIOS], timeout No de intentos: 2", flush=True)
+
+  [GATEWAY]
+    print("[GATEWAY], Llamando al backend...", flush=True)
+    print("[GATEWAY], respuesta obtenida desde mascotas", flush=True)
+    print("[GATEWAY], timeout No de intentos: 3", flush=True)
+
+El prefijo [SERVICIO] permite identificar rápidamente qué
+contenedor generó cada mensaje al revisar los logs con:
+    docker compose logs -f
+
+
+================================================================
+2. TIMEOUTS
+================================================================
+
+Cada llamada HTTP entre servicios incluye timeout=2 para evitar
+que un servicio quede bloqueado esperando una respuesta indefinida.
+
+    requests.get("http://servicio:5000/ruta", timeout=2)
+
+Si el servicio destino no responde en 2 segundos, se lanza
+requests.exceptions.Timeout y se retorna al cliente:
+
+    {"error": "Tiempo de espera agotado"}, código 503
+
+Servicios que aplican timeout (los que hacen llamadas HTTP):
+
+  - BACKEND   → en /relacion al llamar a usuarios
+  - USUARIOS  → en /usuarios/<id>/mascotas al llamar a backend
+  - GATEWAY   → en todas sus rutas al llamar a backend y usuarios
+
+
+================================================================
+3. MANEJO DE ERRORES
+================================================================
+
+Se utiliza un bloque for i in range(3) con try/except en cada
+ruta que realiza llamadas HTTP a otros servicios. Esto permite
+hasta 3 intentos antes de declarar el servicio como no disponible.
+
+Estructura del patrón:
+
+    for i in range(3):
+        try:
+            print("[SERVICIO], Llamando a...", flush=True)
+            response = requests.get("http://...", timeout=2)
+            if response.status_code != 200:
+                return jsonify({"error": "..."}), response.status_code
+            print("[SERVICIO], respuesta obtenida", flush=True)
+            return jsonify(response.json())
+        except requests.exceptions.Timeout:
+            return jsonify({"error": "Tiempo de espera agotado"}), 503
+        except requests.exceptions.ConnectionError:
+            print(f"[SERVICIO], timeout No de intentos: {i+1}", flush=True)
+    return jsonify({"error": "Servicio no responde"}), 504
+
+Códigos de error retornados:
+
+  503 → El servicio respondió pero superó el timeout (Timeout)
+  504 → El servicio no respondió tras 3 intentos (ConnectionError)
+  502 → El servicio respondió con un código de error (status != 200)
+  404 → Recurso no encontrado (ej. usuario o mascota inexistente)
+
+Rutas que aplican el patrón completo (for + try/except):
+
+  BACKEND:
+    - GET /relacion        (llama a usuarios por cada mascota)
+
+  USUARIOS:
+    - GET /usuarios/<id>/mascotas   (llama a backend)
+
+  GATEWAY:
+    - GET /usuarios                 (llama a usuarios)
+    - GET /mascotas                 (llama a backend)
+    - GET /mascotas/<id>            (llama a backend)
+    - GET /usuarios/<id>/mascotas   (llama a usuarios)
+
+Rutas que solo usan print (sin llamadas HTTP, solo BD):
+
+  BACKEND:
+    - POST /mascotas
+    - GET  /mascotas
+    - GET  /mascotas/<id>
+
+
+================================================================
+4. LISTA DE ENDPOINTS
+================================================================
+
+----- GATEWAY (puerto 8080, punto de entrada principal) --------
+
+  GET  /usuarios                  Retorna la lista de todos los usuarios
+  GET  /mascotas                  Retorna la lista de todas las mascotas
+  GET  /mascotas/<id>             Retorna una mascota por su ID
+  GET  /usuarios/<id>/mascotas    Retorna un usuario con sus mascotas
+
+----- BACKEND (puerto 5000, interno) ---------------------------
+
+  GET  /                          Verificación: "API FUNCIONANDO"
+  GET  /mascotas                  Retorna todas las mascotas
+                                  Query param opcional: ?usuario_id=<id>
+  GET  /mascotas/<id>             Retorna una mascota por su ID
+  POST /mascotas                  Crea una nueva mascota
+                                  Body JSON: {"nombre": "", "tipo": "", "usuario_id": n}
+  GET  /relacion                  Retorna cada mascota junto con su usuario
+
+----- USUARIOS (puerto 5000, interno) --------------------------
+
+  GET  /usuarios                  Retorna la lista de todos los usuarios
+  GET  /usuarios/<id>             Retorna un usuario por su ID
+  GET  /usuarios/<id>/mascotas    Retorna un usuario con sus mascotas
+
+
+================================================================
+5. COMUNICACIÓN ENTRE SERVICIOS
+================================================================
+
+  Cliente
+    └── Gateway :8080
+          ├── → Usuarios :5000
+          │       └── → Backend :5000
+          └── → Backend :5000
+                  └── → Usuarios :5000  (solo en /relacion)
+
+================================================================

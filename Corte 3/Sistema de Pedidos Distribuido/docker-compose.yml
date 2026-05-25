@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  inventario:
+    build: ./inventario
+    ports:
+      - "5002:5000"
+    volumes:
+      - inventario_data:/app/datos
+
+  pagos:
+    build: ./pagos
+    ports:
+      - "5003:5000"
+
+  pedidos:
+    build: ./pedidos
+    ports:
+      - "5001:5000"
+    volumes:
+      - pedidos_data:/app/datos
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "5000:5000"
+    depends_on:
+      - pedidos
+      - inventario
+      - pagos
+
+volumes:
+  inventario_data:
+  pedidos_data:

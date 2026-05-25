@@ -5,7 +5,6 @@ const http = require("http");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 
@@ -17,7 +16,7 @@ const MS_HISTORIAL_URL = process.env.MS_HISTORIAL_URL || "http://ms-historial:30
 const MS_ESPECIALIDADES_URL = process.env.MS_ESPECIALIDADES_URL || "http://ms-especialidades:3007";
 const MS_AUTH_URL = process.env.MS_AUTH_URL || "http://ms-auth:3006";
 
-// Circuit breaker
+// Circuit breaker config
 const CIRCUIT_TIMEOUT = 20000;
 const MAX_FAILURES = 3;
 
@@ -30,9 +29,9 @@ const services = {
   auth:           { url: MS_AUTH_URL,           prefix: "/api/auth",           healthPath: "/health" },
 };
 
-// Estado del circuit breaker para cada servicio
+// Estado del circuit breaker
 const circuitStates = {};
-for (const [name, cfg] of Object.entries(services)) {
+for (const [name] of Object.entries(services)) {
   circuitStates[name] = {
     fallos: 0,
     abierto: false,
@@ -42,8 +41,13 @@ for (const [name, cfg] of Object.entries(services)) {
   };
 }
 
-// Revisa si un servicio responde
-function checkHealth(serviceUrl, healthPath, timeout = 2000) {
+// Log helper
+function log(tag, msg) {
+  console.log(`[${tag}] ${msg}`);
+}
+
+// Revisa si un servicio responde (health check rapido)
+function checkHealth(serviceUrl, healthPath, timeout = 1500) {
   return new Promise((resolve) => {
     const url = new URL(healthPath, serviceUrl);
     const req = http.get(url.toString(), { timeout }, (res) => {
@@ -57,7 +61,7 @@ function checkHealth(serviceUrl, healthPath, timeout = 2000) {
   });
 }
 
-// Revisa en que estado esta el circuit breaker
+// Revisa estado del circuit breaker
 function getCircuitStatus(name) {
   const state = circuitStates[name];
   const ahora = Date.now();
@@ -69,7 +73,7 @@ function getCircuitStatus(name) {
   if (tiempoTranscurrido > CIRCUIT_TIMEOUT) {
     if (!state.halfOpen) {
       state.halfOpen = true;
-      console.log(`[${name.toUpperCase()}] Recuperando servicio (HALF-OPEN)`, flush = true);
+      log(name.toUpperCase(), "Recuperando servicio (HALF-OPEN)");
     }
     return "HALF-OPEN";
   }
@@ -77,61 +81,49 @@ function getCircuitStatus(name) {
   return "OPEN";
 }
 
-// Registra que el servicio respondio bien
+// Registra exito - reset completo
 function registerSuccess(name) {
   const state = circuitStates[name];
   state.fallos = 0;
   state.abierto = false;
   state.halfOpen = false;
+  state.ultimo_fallo_tiempo = 0;
 }
 
-// Registra que el servicio fallo
+// Registra fallo
 function registerFailure(name) {
   const state = circuitStates[name];
   const ahora = Date.now();
 
   state.fallos += 1;
   state.ultimo_fallo_tiempo = ahora;
-  state.latencia = 0;
 
   if (state.fallos >= MAX_FAILURES) {
     state.abierto = true;
     state.halfOpen = false;
-    console.log(`[CIRCUIT BREAKER] Circuito de ${name} ABIERTO`, flush = true);
+    log("CIRCUIT BREAKER", `Circuito de ${name} ABIERTO`);
   }
 }
 
-// Proxy con circuit breaker
+// Proxy con circuit breaker + health check previo
 function buildProxy(name, target, routePrefix) {
   const state = circuitStates[name];
 
-  return createProxyMiddleware({
+  // Crear el proxy una sola vez
+  const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
     pathRewrite: {
       [`^${routePrefix}`]: "",
     },
+    timeout: 2000,
+    proxyTimeout: 3000,
+    
     onProxyReq: (proxyReq, req, res) => {
-      const circuitStatus = getCircuitStatus(name);
-
-      if (circuitStatus === "OPEN") {
-        console.log(`[${name.toUpperCase()}] Circuito abierto`, flush = true);
-        res.status(503).json({
-          error: `Circuito abierto: servicio ${name} bloqueado`
-        });
-        proxyReq.destroy();
-        return;
-      }
-
-      if (circuitStatus === "HALF-OPEN") {
-        console.log(`[${name.toUpperCase()}] Peticion en HALF-OPEN (prueba de recuperacion)`, flush = true);
-      }
-
-      console.log(`[GATEWAY] Llamando servicio ${name}...`, flush = true);
-
-      const inicio = Date.now();
-      req._circuitStart = inicio;
+      log("GATEWAY", `Llamando servicio ${name}...`);
+      req._circuitStart = Date.now();
     },
+    
     onProxyRes: (proxyRes, req, res) => {
       const inicio = req._circuitStart || Date.now();
       const fin = Date.now();
@@ -141,17 +133,20 @@ function buildProxy(name, target, routePrefix) {
 
       if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
         if (state.abierto || state.halfOpen) {
-          console.log(`[${name.toUpperCase()}] Servicio recuperado, circuito CERRADO`, flush = true);
+          log(name.toUpperCase(), "Servicio recuperado, circuito CERRADO");
         }
         registerSuccess(name);
-        console.log(`[GATEWAY] Servicio ${name} respondio correctamente`, flush = true);
+        log("GATEWAY", `Servicio ${name} respondio correctamente`);
       } else {
-        console.log(`[ERROR] ${name} respondio con status ${proxyRes.statusCode}`, flush = true);
-        registerFailure(name);
+        log("ERROR", `${name} respondio con status ${proxyRes.statusCode}`);
+        if (proxyRes.statusCode >= 500) {
+          registerFailure(name);
+        }
       }
 
-      console.log(`[INFO] Tiempo de respuesta ${name}: ${latencia} ms`, flush = true);
+      log("INFO", `Tiempo de respuesta ${name}: ${latencia} ms`);
     },
+    
     onError: (err, req, res) => {
       const inicio = req._circuitStart || Date.now();
       const fin = Date.now();
@@ -160,11 +155,11 @@ function buildProxy(name, target, routePrefix) {
       state.latencia = latencia;
 
       if (err.code === "ECONNREFUSED") {
-        console.log(`[ERROR] No se pudo conectar con ${name}`, flush = true);
+        log("ERROR", `No se pudo conectar con ${name}`);
       } else if (err.code === "ETIMEDOUT" || err.code === "ECONNRESET") {
-        console.log(`[ERROR] Timeout en servicio ${name}`, flush = true);
+        log("ERROR", `Timeout en servicio ${name}`);
       } else {
-        console.log(`[ERROR] Servicio ${name}: ${err.message}`, flush = true);
+        log("ERROR", `Servicio ${name}: ${err.message}`);
       }
 
       registerFailure(name);
@@ -175,10 +170,64 @@ function buildProxy(name, target, routePrefix) {
         });
       }
 
-      console.log(`[INFO] Tiempo de respuesta ${name}: ${latencia} ms`, flush = true);
+      log("INFO", `Tiempo de respuesta ${name}: ${latencia} ms`);
     },
   });
+
+  // Wrapper con health check previo y circuit breaker
+  return async (req, res, next) => {
+    // 1. Verificar circuit breaker
+    const circuitStatus = getCircuitStatus(name);
+
+    if (circuitStatus === "OPEN") {
+      log(name.toUpperCase(), "Circuito abierto - bloqueando peticion");
+      registerFailure(name);
+      return res.status(503).json({
+        error: `Circuito abierto: servicio ${name} bloqueado`
+      });
+    }
+
+    if (circuitStatus === "HALF-OPEN") {
+      log(name.toUpperCase(), "Peticion en HALF-OPEN (prueba de recuperacion)");
+      
+      // En HALF-OPEN: hacer health check primero para saber si esta disponible
+      const isHealthy = await checkHealth(target, "/health", 2000);
+      
+      if (!isHealthy) {
+        log("ERROR", `Health check en HALF-OPEN fallo para ${name}`);
+        registerFailure(name);
+        return res.status(503).json({
+          error: `Servicio ${name} no disponible (half-open)`
+        });
+      }
+      
+      // Si health check pasa, resetear y dejar pasar
+      log(name.toUpperCase(), "Health check en HALF-OPEN exitoso - cerrando circuito");
+      registerSuccess(name);
+    }
+
+    // 2. Health check rapido antes de reenviar (solo en CLOSED)
+    if (circuitStatus === "CLOSED") {
+      const isHealthy = await checkHealth(target, "/health", 1500);
+      if (!isHealthy) {
+        log("ERROR", `Health check previo fallo para ${name}`);
+        registerFailure(name);
+        return res.status(503).json({
+          error: `Servicio ${name} no disponible`
+        });
+      }
+    }
+
+    // 3. Si todo bien, reenviar al proxy
+    proxy(req, res, next);
+  };
 }
+
+// Log de peticiones entrantes
+app.use((req, res, next) => {
+  log("GATEWAY", `${req.method} ${req.url}`);
+  next();
+});
 
 // Raiz
 app.get("/", (req, res) => {
@@ -220,10 +269,10 @@ app.get("/health/:servicio", async (req, res) => {
   const isHealthy = await checkHealth(cfg.url, cfg.healthPath);
 
   if (isHealthy) {
-    console.log(`[HEALTH_${nombre.toUpperCase()}] Respuesta health [OK]`, flush = true);
+    log(`HEALTH_${nombre.toUpperCase()}`, "Respuesta health [OK]");
     res.json({ servicio: nombre, status: "up" });
   } else {
-    console.log(`[HEALTH_${nombre.toUpperCase()}] Respuesta health [ERROR]`, flush = true);
+    log(`HEALTH_${nombre.toUpperCase()}`, "Respuesta health [ERROR]");
     res.status(503).json({ servicio: nombre, status: "down" });
   }
 });
@@ -268,11 +317,6 @@ app.get("/monitoreo", async (req, res) => {
   });
 });
 
-app.use((req, res, next) => {
-  console.log(`[GATEWAY] ${req.method} ${req.url} — de ${req.ip}`);
-  next();
-});
-
 // Proxies
 app.use("/api/usuarios",       buildProxy("usuarios",       MS_USUARIOS_URL,       "/api/usuarios"));
 app.use("/api/disponibilidad", buildProxy("disponibilidad", MS_DISPONIBILIDAD_URL, "/api/disponibilidad"));
@@ -288,8 +332,8 @@ app.use((req, res) => {
 
 // Inicio
 app.listen(PORT, () => {
-  console.log(`[ms-gateway] Corriendo en puerto ${PORT}`, flush = true);
+  log("ms-gateway", `Corriendo en puerto ${PORT}`);
   for (const [name, cfg] of Object.entries(services)) {
-    console.log(`[ms-gateway] ${name} -> ${cfg.url}`, flush = true);
+    log("ms-gateway", `${name} -> ${cfg.url}`);
   }
 });

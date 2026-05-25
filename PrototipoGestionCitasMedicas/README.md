@@ -85,38 +85,85 @@ Cada microservicio tiene su propio schema dentro del mismo contenedor MySQL. No 
 
 ---
 
-## Circuit Breaker
+## Circuit Breaker (Gateway)
 
-ms-citas y ms-disponibilidad implementan el patrón Circuit Breaker para todas sus llamadas a otros servicios.
+El `ms-gateway` implementa el patrón **Circuit Breaker** con **Half-Open** y **Half-Check** para todos los microservicios, protegiendo el sistema contra cascadas de fallos.
 
 ```
 Estados:
-  CERRADO ──(3 fallas)──► ABIERTO ──(30s)──► SEMI_ABIERTO
-     ▲                                              │
-     └──────────── llamada exitosa ────────────────┘
+  CLOSED ──(3 fallos consecutivos)──► OPEN ──(20 segundos)──► HALF-OPEN
+     ▲                                                          │
+     └────────── petición de prueba exitosa ────────────────────┘
+              (health check + proxy)
 ```
 
 | Estado | Comportamiento |
 |---|---|
-| **CERRADO** | Operación normal |
-| **ABIERTO** | Bloquea llamadas inmediatamente; loguea segundos restantes para reintento |
-| **SEMI_ABIERTO** | Deja pasar una llamada de prueba; si falla vuelve a ABIERTO |
+| **CLOSED** | Operación normal. Health check previo antes de reenviar. |
+| **OPEN** | Bloquea peticiones inmediatamente. Retorna `503`. |
+| **HALF-OPEN** | Permite una petición de prueba con health check previo. Si falla, vuelve a OPEN. Si funciona, pasa a CLOSED. |
 
-**Degradación graceful:**
-- Si ms-historial no responde → la cita se crea igual, solo se omite el registro de auditoría
-- Si ms-citas no responde (slots) → los slots se generan sin verificar conflictos de citas
-- Si ms-usuarios no responde → las operaciones que requieren validar médico/paciente retornan `422`
+**Half-Check:** En estado HALF-OPEN, el gateway realiza un **health check explícito** al microservicio antes de reenviar la petición real. Esto evita enviar tráfico a un servicio que aún no está listo.
 
-El endpoint `/health` de ms-citas y ms-disponibilidad expone el estado actual de cada CB:
+**Degradación graceful:** Si un servicio no responde, el gateway retorna `503` inmediatamente sin esperar al timeout del backend.
+
+---
+
+## Monitoreo
+
+El gateway expone un endpoint de monitoreo en tiempo real:
+
+```
+GET /monitoreo
+```
+
+**Respuesta:**
+
 ```json
 {
-  "servicio": "ms-citas",
-  "estado": "ok",
-  "circuit_breakers": {
-    "ms-usuarios": "CERRADO",
-    "ms-historial": "CERRADO"
-  }
+  "gateway": "activo",
+  "total_servicios": 6,
+  "servicios": [
+    {
+      "servicio": "auth",
+      "disponibilidad": "Disponible",
+      "errores": 0,
+      "latencia_ms": 12,
+      "estado_circuito": "CLOSED"
+    }
+  ]
 }
+```
+
+| Campo | Descripción |
+|---|---|
+| `disponibilidad` | Resultado del health check al microservicio |
+| `errores` | Contador de fallos consecutivos del circuit breaker |
+| `latencia_ms` | Último tiempo de respuesta medido |
+| `estado_circuito` | `CLOSED` · `OPEN` · `HALF-OPEN` |
+
+**Health checks individuales:**
+
+```
+GET /health/:servicio    → Estado de un servicio específico
+GET /health              → Estado del gateway
+```
+
+---
+
+## Logs del Gateway
+
+Todos los eventos del circuit breaker se loguean con formato uniforme:
+
+```
+[GATEWAY] POST /api/auth/login
+[ERROR] Health check previo fallo para auth
+[CIRCUIT BREAKER] Circuito de auth ABIERTO
+[AUTH] Circuito abierto - bloqueando peticion
+[AUTH] Recuperando servicio (HALF-OPEN)
+[AUTH] Health check en HALF-OPEN exitoso - cerrando circuito
+[AUTH] Servicio recuperado, circuito CERRADO
+[INFO] Tiempo de respuesta auth: 45 ms
 ```
 
 ---

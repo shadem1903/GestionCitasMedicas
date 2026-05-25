@@ -3,14 +3,13 @@
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 const API = {
-  usuarios: "http://localhost:8080/api/usuarios",
-  disponibilidad: "http://localhost:8080/api/disponibilidad",
-  citas: "http://localhost:8080/api/citas",
-  especialidades: "http://localhost:8080/api/especialidades",
-  historial: "http://localhost:8080/api/historial",
-  auth: "http://localhost:8080/api/auth",
+  usuarios: "/api/usuarios",
+  disponibilidad: "/api/disponibilidad",
+  citas: "/api/citas",
+  especialidades: "/api/especialidades",
+  historial: "/api/historial",
+  auth: "/api/auth",
 };
-
 const AUTH_USER_KEY = "gcitas_current_user";
 const AUTH_TOKEN_KEY = "gcitas_auth_token";
 const ROLE_SECTIONS = {

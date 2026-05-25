@@ -31,11 +31,23 @@
     <header class="topbar">
       <h1 id="page-title">Dashboard</h1>
       <div class="topbar-actions">
+        <div id="notif-wrapper" class="notif-wrapper hidden">
+          <button id="btn-notif" class="btn-notif">
+            🔔 <span id="notif-badge" class="notif-badge hidden">0</span>
+          </button>
+          <div id="notif-dropdown" class="notif-dropdown hidden">
+            <div class="notif-header">Notificaciones</div>
+            <div id="notif-list" class="notif-list">Cargando...</div>
+          </div>
+        </div>
         <span id="current-user-label" class="user-label hidden"></span>
         <button id="btn-logout" class="btn btn-ghost btn-sm hidden">Cerrar sesion</button>
         <button id="btn-nuevo" class="btn btn-primary hidden">+ Nuevo</button>
       </div>
     </header>
+    <div id="disabled-banner" class="disabled-banner hidden">
+      Tu usuario está deshabilitado y no puede agendar ni modificar ninguna cita.
+    </div>
     <main id="main-content" class="main-content"></main>
   </div>
 
@@ -50,6 +62,6 @@
   </div>
 
   <div id="toast-container"></div>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

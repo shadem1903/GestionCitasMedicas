@@ -1,6 +1,6 @@
-﻿﻿﻿﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   GestiÃ³n de Citas MÃ©dicas â€” Frontend SPA
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+﻿﻿/* ═════════════════════════════════════════════════════════════
+   Gestión de Citas Médicas — Frontend SPA
+   ═════════════════════════════════════════════════════════════ */
 
 const API = {
   usuarios: "/api/usuarios",
@@ -24,7 +24,7 @@ const CREATE_SECTIONS_BY_ROLE = {
 };
 let currentUser = null;
 
-/* â”€â”€ Utilidades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Utilidades ─────────────────────────────────────────────── */
 
 function toast(msg, type = "info") {
   const el = document.createElement("div");
@@ -51,7 +51,7 @@ function cleanNota(text) {
   if (!text) return "-";
   const t = String(text).trim();
   if (!t) return "-";
-  if (t.includes("ðŸ") || t.includes("�")) return "-";
+  if (t.includes("🟢") || t.includes("�")) return "-";
   return t;
 }
 
@@ -85,7 +85,7 @@ function closeModal() {
 
 function tableLoading(cols) {
   return `<tr class="loading-row"><td colspan="${cols}">
-    <span class="spinner"></span> Cargandoâ€¦
+    <span class="spinner"></span> Cargando…
   </td></tr>`;
 }
 
@@ -93,7 +93,114 @@ function tableEmpty(cols, msg = "Sin registros") {
   return `<tr><td colspan="${cols}" style="padding:40px;text-align:center;color:var(--text-muted)">${msg}</td></tr>`;
 }
 
-/* â”€â”€ NavegaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Notificaciones ─────────────────────────────────────────── */
+
+let notificaciones = [];
+let notifPolling = null;
+
+function initNotificaciones() {
+  const wrapper = document.getElementById("notif-wrapper");
+  const btn = document.getElementById("btn-notif");
+  const dropdown = document.getElementById("notif-dropdown");
+  
+  if (!wrapper || !btn || !dropdown) return;
+  
+  if (!currentUser) {
+    wrapper.classList.add("hidden");
+    return;
+  }
+  
+  wrapper.classList.remove("hidden");
+  
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle("hidden");
+    if (!dropdown.classList.contains("hidden")) {
+      cargarNotificaciones();
+    }
+  });
+  
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) {
+      dropdown.classList.add("hidden");
+    }
+  });
+  
+  cargarNotificaciones();
+  // Polling cada 30 segundos
+  notifPolling = setInterval(cargarNotificaciones, 30000);
+}
+
+async function cargarNotificaciones() {
+  if (!currentUser) return;
+  try {
+    const data = await apiFetch(`${API.usuarios}/usuarios/${currentUser.id}/notificaciones`);
+    notificaciones = data || [];
+    actualizarBadgeNotificaciones();
+    renderNotificacionesDropdown();
+  } catch (err) {
+    console.warn("Error cargando notificaciones:", err.message);
+  }
+}
+
+function actualizarBadgeNotificaciones() {
+  const badge = document.getElementById("notif-badge");
+  const noLeidas = notificaciones.filter(n => !n.leida).length;
+  if (noLeidas > 0) {
+    badge.textContent = noLeidas > 99 ? "99+" : noLeidas;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+}
+
+function renderNotificacionesDropdown() {
+  const list = document.getElementById("notif-list");
+  if (!list) return;
+  
+  if (!notificaciones.length) {
+    list.innerHTML = '<div class="notif-item">No tienes notificaciones</div>';
+    return;
+  }
+  
+  list.innerHTML = notificaciones.map(n => `
+    <div class="notif-item ${n.leida ? '' : 'unread'}" onclick="marcarNotificacionLeida(${n.id})">
+      ${n.mensaje}
+      <span class="date">${fmtFecha(n.creado_en)}</span>
+    </div>
+  `).join("");
+}
+
+async function marcarNotificacionLeida(notifId) {
+  if (!currentUser) return;
+  try {
+    await apiFetch(`${API.usuarios}/usuarios/${currentUser.id}/notificaciones/${notifId}/read`, {
+      method: "PUT"
+    });
+    await cargarNotificaciones();
+  } catch (err) {
+    console.warn("Error marcando notificación como leída:", err.message);
+  }
+}
+
+/* ── Banner usuario deshabilitado ───────────────────────────── */
+
+function actualizarBannerDeshabilitado() {
+  const banner = document.getElementById("disabled-banner");
+  if (!banner) return;
+  
+  if (currentUser && currentUser.activo === false) {
+    banner.classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+  }
+}
+
+function usuarioPuedeAgendar() {
+  return currentUser && currentUser.activo !== false;
+}
+
+/* ── Navegación ───────────────────────────────────────────── */
 
 const sections = {
   dashboard:      renderDashboard,
@@ -108,8 +215,8 @@ const sectionTitles = {
   dashboard:      "Dashboard",
   usuarios:       "Usuarios",
   especialidades: "Especialidades",
-  disponibilidad: "Disponibilidad MÃ©dica",
-  citas:          "GestiÃ³n de Citas",
+  disponibilidad: "Disponibilidad Médica",
+  citas:          "Gestión de Citas",
   historial:      "Historial",
 };
 
@@ -152,10 +259,14 @@ function applyRoleUI() {
     label.classList.add("hidden");
     btnLogout.classList.add("hidden");
   }
+  
+  actualizarBannerDeshabilitado();
+  initNotificaciones();
 }
 
 function logout() {
   currentUser = null;
+  if (notifPolling) clearInterval(notifPolling);
   localStorage.removeItem(AUTH_USER_KEY);
   localStorage.removeItem(AUTH_TOKEN_KEY);
   window.location.href = "/login.html";
@@ -182,6 +293,10 @@ document.getElementById("modal-overlay").addEventListener("click", e => {
 });
 
 document.getElementById("btn-nuevo").addEventListener("click", () => {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const actions = {
     usuarios:       openFormUsuario,
     especialidades: openFormEspecialidad,
@@ -192,9 +307,9 @@ document.getElementById("btn-nuevo").addEventListener("click", () => {
 });
 document.getElementById("btn-logout").addEventListener("click", logout);
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═════════════════════════════════════════════════════════════
    DASHBOARD
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═════════════════════════════════════════════════════════════ */
 
 async function renderDashboard() {
   const main = document.getElementById("main-content");
@@ -218,6 +333,10 @@ async function renderDashboard() {
               <div class="port">:${port}</div>
             </div>
           </div>`).join("")}
+    </div>
+    <p class="section-title" style="margin-top:20px">Logs del sistema</p>
+    <div class="logs-container" id="logs-container">
+      <div class="log-line">Cargando logs...</div>
     </div>`;
 
   // Health checks en paralelo
@@ -249,20 +368,57 @@ async function renderDashboard() {
 
   const grid = document.getElementById("stats-grid");
   const labels = ["Usuarios","Especialidades","Disponibilidades","Citas"];
-  const subs   = ["pacientes y mÃ©dicos","registradas","bloques activos","total registradas"];
+  const subs   = ["pacientes y médicos","registradas","bloques activos","total registradas"];
   grid.innerHTML = counts.map((r, i) => {
-    const val = r.status === "fulfilled" ? r.value.total : "â€”";
+    const val = r.status === "fulfilled" ? r.value.total : "—";
     return `<div class="stat-card">
       <div class="label">${labels[i]}</div>
       <div class="value">${val}</div>
       <div class="sub">${subs[i]}</div>
     </div>`;
   }).join("");
+  
+  // Cargar logs
+  cargarLogs();
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+async function cargarLogs() {
+  const container = document.getElementById("logs-container");
+  if (!container) return;
+  
+  const servicios = [
+    { nombre: "ms-auth", url: `${API.auth}/logs` },
+    { nombre: "ms-usuarios", url: `${API.usuarios}/logs` },
+    { nombre: "ms-citas", url: `${API.citas}/logs` },
+    { nombre: "ms-disponibilidad", url: `${API.disponibilidad}/logs` },
+    { nombre: "ms-especialidades", url: `${API.especialidades}/logs` },
+    { nombre: "ms-historial", url: `${API.historial}/logs` },
+  ];
+  
+  let logsHTML = "";
+  
+  for (const svc of servicios) {
+    try {
+      const logs = await fetch(svc.url, { signal: AbortSignal.timeout(3000) }).then(r => r.ok ? r.json() : []);
+      if (logs && logs.length) {
+        logsHTML += logs.slice(-10).map(line => {
+          let cls = "log-line";
+          if (line.includes("ERROR")) cls += " error";
+          else if (line.includes("WARN")) cls += " warn";
+          return `<div class="${cls}">[${svc.nombre}] ${line}</div>`;
+        }).join("");
+      }
+    } catch {
+      // Silencioso
+    }
+  }
+  
+  container.innerHTML = logsHTML || '<div class="log-line">No hay logs disponibles</div>';
+}
+
+/* ═════════════════════════════════════════════════════════════
    USUARIOS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═════════════════════════════════════════════════════════════ */
 
 async function renderUsuarios(filtroRol = "") {
   const main = document.getElementById("main-content");
@@ -273,7 +429,7 @@ async function renderUsuarios(filtroRol = "") {
         <select id="filtro-rol">
           <option value="">Todos</option>
           <option value="paciente" ${filtroRol==="paciente"?"selected":""}>Paciente</option>
-          <option value="medico"   ${filtroRol==="medico"  ?"selected":""}>MÃ©dico</option>
+          <option value="medico"   ${filtroRol==="medico"  ?"selected":""}>Médico</option>
           <option value="admin"    ${filtroRol==="admin"   ?"selected":""}>Admin</option>
         </select>
         <div class="spacer"></div>
@@ -305,7 +461,7 @@ async function renderUsuarios(filtroRol = "") {
         <td class="td-actions">
           ${u.activo
             ? `<button class="btn btn-danger btn-sm" onclick="desactivarUsuario(${u.id})">Desactivar</button>`
-            : `<span style="color:var(--text-muted);font-size:12px">Desactivado</span>`}
+            : `<button class="btn btn-success btn-sm" onclick="activarUsuario(${u.id})">Activar</button>`}
         </td>
       </tr>`).join("");
   } catch (err) {
@@ -315,21 +471,25 @@ async function renderUsuarios(filtroRol = "") {
 }
 
 function openFormUsuario() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   openModal("Nuevo Usuario", `
     <div class="form-group">
       <label>Nombre completo</label>
-      <input id="f-nombre" type="text" placeholder="Ej: MarÃ­a GarcÃ­a" />
+      <input id="f-nombre" type="text" placeholder="Ej: María García" />
     </div>
     <div class="form-group">
-      <label>Correo electrÃ³nico</label>
+      <label>Correo electrónico</label>
       <input id="f-email" type="email" placeholder="correo@ejemplo.com" />
     </div>
     <div class="form-group">
       <label>Rol</label>
       <select id="f-rol">
-        <option value="">Seleccionar rolâ€¦</option>
+        <option value="">Seleccionar rol…</option>
         <option value="paciente">Paciente</option>
-        <option value="medico">MÃ©dico</option>
+        <option value="medico">Médico</option>
         <option value="admin">Administrador</option>
       </select>
     </div>
@@ -340,6 +500,10 @@ function openFormUsuario() {
 }
 
 async function guardarUsuario() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const nombre = document.getElementById("f-nombre").value.trim();
   const email  = document.getElementById("f-email").value.trim();
   const rol    = document.getElementById("f-rol").value;
@@ -358,7 +522,7 @@ async function guardarUsuario() {
 }
 
 async function desactivarUsuario(id) {
-  if (!confirm("Â¿Desactivar este usuario?")) return;
+  if (!confirm("¿Desactivar este usuario?")) return;
   try {
     await apiFetch(`${API.usuarios}/usuarios/${id}`, { method: "DELETE" });
     toast("Usuario desactivado", "success");
@@ -368,9 +532,20 @@ async function desactivarUsuario(id) {
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+async function activarUsuario(id) {
+  if (!confirm("¿Activar este usuario?")) return;
+  try {
+    await apiFetch(`${API.usuarios}/usuarios/${id}/activar`, { method: "PATCH" });
+    toast("Usuario activado", "success");
+    renderUsuarios();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════
    ESPECIALIDADES
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═════════════════════════════════════════════════════════════ */
 
 async function renderEspecialidades() {
   const main = document.getElementById("main-content");
@@ -378,7 +553,7 @@ async function renderEspecialidades() {
     <div class="card">
       <table>
         <thead><tr>
-          <th>ID</th><th>Nombre</th><th>DescripciÃ³n</th><th>Estado</th><th>Acciones</th>
+          <th>ID</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-esp">${tableLoading(5)}</tbody>
       </table>
@@ -392,7 +567,7 @@ async function renderEspecialidades() {
       <tr>
         <td>${e.id}</td>
         <td><strong>${e.nombre}</strong></td>
-        <td>${e.descripcion || "<span style='color:var(--text-muted)'>â€”</span>"}</td>
+        <td>${e.descripcion || "<span style='color:var(--text-muted)'>—</span>"}</td>
         <td>${badge(e.activo ? "Activa" : "Inactiva", e.activo ? "activo" : "inactivo")}</td>
         <td class="td-actions">
           ${e.activo
@@ -407,14 +582,18 @@ async function renderEspecialidades() {
 }
 
 function openFormEspecialidad() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   openModal("Nueva Especialidad", `
     <div class="form-group">
       <label>Nombre</label>
-      <input id="f-esp-nombre" type="text" placeholder="Ej: NeurologÃ­a" />
+      <input id="f-esp-nombre" type="text" placeholder="Ej: Neurología" />
     </div>
     <div class="form-group">
-      <label>DescripciÃ³n (opcional)</label>
-      <textarea id="f-esp-desc" placeholder="Breve descripciÃ³nâ€¦"></textarea>
+      <label>Descripción (opcional)</label>
+      <textarea id="f-esp-desc" placeholder="Breve descripción…"></textarea>
     </div>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -423,6 +602,10 @@ function openFormEspecialidad() {
 }
 
 async function guardarEspecialidad() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const nombre      = document.getElementById("f-esp-nombre").value.trim();
   const descripcion = document.getElementById("f-esp-desc").value.trim();
   if (!nombre) { toast("El nombre es requerido", "error"); return; }
@@ -440,7 +623,7 @@ async function guardarEspecialidad() {
 }
 
 async function desactivarEspecialidad(id) {
-  if (!confirm("Â¿Desactivar esta especialidad?")) return;
+  if (!confirm("¿Desactivar esta especialidad?")) return;
   try {
     await apiFetch(`${API.especialidades}/especialidades/${id}`, { method: "DELETE" });
     toast("Especialidad desactivada", "success");
@@ -450,9 +633,9 @@ async function desactivarEspecialidad(id) {
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═════════════════════════════════════════════════════════════
    DISPONIBILIDAD
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═════════════════════════════════════════════════════════════ */
 
 async function renderDisponibilidad() {
   const main = document.getElementById("main-content");
@@ -533,6 +716,10 @@ async function cargarDispBloques() {
 }
 
 async function openFormDisponibilidad() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   if (currentDispTab === "schedules") return openFormSchedule();
   if (currentDispTab === "blocks")    return openFormBlock();
 
@@ -584,6 +771,10 @@ async function openFormDisponibilidad() {
 }
 
 async function guardarDisponibilidad() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const medico_id       = document.getElementById("f-disp-medico").value;
   const especialidad_id = document.getElementById("f-disp-esp").value || null;
   const fecha           = document.getElementById("f-disp-fecha").value;
@@ -671,6 +862,10 @@ async function cargarSchedules() {
 }
 
 async function openFormSchedule() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   let medicos = [];
   try {
     const r = await apiFetch(`${API.usuarios}/usuarios`);
@@ -707,6 +902,10 @@ async function openFormSchedule() {
 }
 
 async function guardarSchedule() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const medico_id   = document.getElementById("f-sched-medico").value;
   const dia_semana  = document.getElementById("f-sched-dia").value;
   const hora_inicio = document.getElementById("f-sched-inicio").value;
@@ -798,6 +997,10 @@ async function cargarBlocks() {
 }
 
 async function openFormBlock() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   let medicos = [];
   try {
     const r = await apiFetch(`${API.usuarios}/usuarios`);
@@ -838,6 +1041,10 @@ async function openFormBlock() {
 }
 
 async function guardarBlock() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const medico_id   = document.getElementById("f-block-medico").value;
   const fecha       = document.getElementById("f-block-fecha").value;
   const hora_inicio = document.getElementById("f-block-inicio").value || null;
@@ -873,6 +1080,9 @@ async function eliminarBlock(id) {
   }
 }
 
+/* ═════════════════════════════════════════════════════════════
+   CITAS
+═════════════════════════════════════════════════════════════ */
 
 async function renderCitas(filtroEstado = "") {
   const main = document.getElementById("main-content");
@@ -892,7 +1102,7 @@ async function renderCitas(filtroEstado = "") {
       <table>
         <thead><tr>
           <th>ID</th><th>Fecha y hora</th><th>Paciente</th>
-          <th>MÃ©dico</th><th>Estado</th><th>Notas</th><th>Acciones</th>
+          <th>Médico</th><th>Estado</th><th>Notas</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tbody-citas">${tableLoading(7)}</tbody>
       </table>
@@ -947,6 +1157,10 @@ async function renderCitas(filtroEstado = "") {
 }
 
 async function openFormCita() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   let pacientes = [], medicos = [];
   try {
     const r = await apiFetch(`${API.usuarios}/usuarios`);
@@ -960,9 +1174,9 @@ async function openFormCita() {
 
   const optMed = medicos.length
     ? medicos.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("")
-    : `<option value="">Sin mÃ©dicos registrados</option>`;
+    : `<option value="">Sin médicos registrados</option>`;
 
-  // Fecha/hora mÃ­nima = ahora
+  // Fecha/hora mínima = ahora
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   const minDT = now.toISOString().slice(0, 16);
@@ -973,7 +1187,7 @@ async function openFormCita() {
       <select id="f-cita-pac">${optPac}</select>
     </div>
     <div class="form-group">
-      <label>MÃ©dico</label>
+      <label>Médico</label>
       <select id="f-cita-med">${optMed}</select>
     </div>
     <div class="form-group">
@@ -982,10 +1196,10 @@ async function openFormCita() {
     </div>
     <div class="form-group">
       <label>Notas (opcional)</label>
-      <textarea id="f-cita-notas" placeholder="Motivo de consulta, observacionesâ€¦"></textarea>
+      <textarea id="f-cita-notas" placeholder="Motivo de consulta, observaciones…"></textarea>
     </div>
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
-      â„¹ï¸ El mÃ©dico debe tener disponibilidad registrada en ese horario.
+      ℹ️ El médico debe tener disponibilidad registrada en ese horario.
     </p>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -994,6 +1208,10 @@ async function openFormCita() {
 }
 
 async function guardarCita() {
+  if (!usuarioPuedeAgendar()) {
+    toast("Tu usuario está deshabilitado y no puede realizar esta acción", "error");
+    return;
+  }
   const paciente_id = document.getElementById("f-cita-pac").value;
   const medico_id   = document.getElementById("f-cita-med").value;
   const fecha_hora  = document.getElementById("f-cita-dt").value;
@@ -1030,7 +1248,7 @@ async function guardarCita() {
 }
 
 async function cancelarCita(id) {
-  if (!confirm("Â¿Cancelar esta cita?")) return;
+  if (!confirm("¿Cancelar esta cita?")) return;
   try {
     await apiFetch(`${API.citas}/citas/${id}/cancelar`, { method: "PATCH" });
     toast("Cita cancelada", "success");
@@ -1052,7 +1270,7 @@ async function confirmarCita(id) {
 }
 
 async function completarCita(id) {
-  if (!confirm("Â¿Marcar esta cita como completada?")) return;
+  if (!confirm("¿Marcar esta cita como completada?")) return;
   try {
     await apiFetch(`${API.citas}/citas/${id}/completar`, { method: "PATCH" });
     toast("Cita marcada como completada", "success");
@@ -1062,8 +1280,9 @@ async function completarCita(id) {
   }
 }
 
-/* â”€â”€ Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-initAuth();
+/* ═════════════════════════════════════════════════════════════
+   HISTORIAL
+═════════════════════════════════════════════════════════════ */
 
 async function renderHistorial() {
   const main = document.getElementById("main-content");
@@ -1130,3 +1349,6 @@ async function cargarHistorial() {
     tbody.innerHTML = tableEmpty(7, err.message || "Error cargando historial");
   }
 }
+
+/* ── Inicio ───────────────────────────────────────────────── */
+initAuth();

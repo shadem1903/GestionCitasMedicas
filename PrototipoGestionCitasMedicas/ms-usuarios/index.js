@@ -8,9 +8,29 @@ app.use(express.json());
 
 const SERVICIO = "ms-usuarios";
 
+let serviceLogs = [];
+let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
+
 function log(nivel, mensaje) {
-  console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
+  const line = `[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`;
+  console.log(line);
+  serviceLogs.push(line);
+  if (serviceLogs.length > 100) serviceLogs.shift();
 }
+
+// Middleware de tiempos de respuesta y conteo
+app.use((req, res, next) => {
+  totalRequests++;
+  const start = Date.now();
+  res.on("finish", () => {
+    const elapsed = Date.now() - start;
+    avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
+  });
+  next();
+});
 
 const pool = mysql.createPool({
   host:             process.env.DB_HOST     || "localhost",
@@ -30,17 +50,43 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     endpoints: [
       "GET    /health",
+      "GET    /logs",
+      "GET    /metrics",
       "GET    /usuarios",
       "GET    /usuarios/:id",
       "POST   /usuarios",
       "PUT    /usuarios/:id",
       "DELETE /usuarios/:id",
+      "PATCH  /usuarios/:id/activar",
+      "GET    /usuarios/:id/notificaciones",
+      "POST   /usuarios/:id/notificaciones",
+      "PUT    /usuarios/:id/notificaciones/:notif_id/read",
     ],
   });
 });
 
 app.get("/health", (req, res) => {
-  res.json({ servicio: SERVICIO, estado: "ok", timestamp: new Date() });
+  res.json({
+    servicio: SERVICIO,
+    estado: "ok",
+    response_time_ms: Math.round(avgResponseTime),
+    timestamp: new Date()
+  });
+});
+
+app.get("/logs", (req, res) => {
+  res.json(serviceLogs);
+});
+
+app.get("/metrics", (req, res) => {
+  res.json({
+    servicio: SERVICIO,
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+    total_requests: totalRequests,
+    error_count: errorCount,
+    avg_response_time_ms: Math.round(avgResponseTime)
+  });
 });
 
 app.get("/usuarios", async (req, res) => {
@@ -143,6 +189,67 @@ app.delete("/usuarios/:id", async (req, res) => {
     res.json({ mensaje: "Usuario desactivado correctamente" });
   } catch (err) {
     log("ERROR", `DELETE /usuarios/${req.params.id} — ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/usuarios/:id/activar", async (req, res) => {
+  log("INFO", `PATCH /usuarios/${req.params.id}/activar`);
+  try {
+    const [result] = await pool.execute(
+      "UPDATE usuarios SET activo = TRUE WHERE id = ?",
+      [req.params.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Usuario no encontrado" });
+    log("INFO", `PATCH /usuarios/${req.params.id}/activar — OK`);
+    res.json({ mensaje: "Usuario activado correctamente" });
+  } catch (err) {
+    log("ERROR", `PATCH /usuarios/${req.params.id}/activar — ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Notificaciones ──────────────────────────────────────────
+app.get("/usuarios/:id/notificaciones", async (req, res) => {
+  log("INFO", `GET /usuarios/${req.params.id}/notificaciones`);
+  try {
+    const [rows] = await pool.execute(
+      "SELECT id, mensaje, leida, creado_en FROM notificaciones WHERE usuario_id = ? ORDER BY creado_en DESC LIMIT 50",
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    log("ERROR", `GET /usuarios/${req.params.id}/notificaciones — ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/usuarios/:id/notificaciones", async (req, res) => {
+  const { mensaje } = req.body;
+  log("INFO", `POST /usuarios/${req.params.id}/notificaciones`);
+  if (!mensaje) return res.status(400).json({ error: "mensaje requerido" });
+  try {
+    const [result] = await pool.execute(
+      "INSERT INTO notificaciones (usuario_id, mensaje) VALUES (?, ?)",
+      [req.params.id, mensaje]
+    );
+    res.status(201).json({ id: result.insertId, mensaje });
+  } catch (err) {
+    log("ERROR", `POST /usuarios/${req.params.id}/notificaciones — ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/usuarios/:id/notificaciones/:notif_id/read", async (req, res) => {
+  log("INFO", `PUT /usuarios/${req.params.id}/notificaciones/${req.params.notif_id}/read`);
+  try {
+    await pool.execute(
+      "UPDATE notificaciones SET leida = TRUE WHERE id = ? AND usuario_id = ?",
+      [req.params.notif_id, req.params.id]
+    );
+    res.json({ mensaje: "Notificacion marcada como leida" });
+  } catch (err) {
+    log("ERROR", `PUT .../notificaciones/.../read — ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });

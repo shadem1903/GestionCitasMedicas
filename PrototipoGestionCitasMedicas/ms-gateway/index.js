@@ -6,6 +6,23 @@ const http = require("http");
 const app = express();
 app.use(cors());
 
+let serviceLogs = [];
+let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
+
+// Middleware de tiempos de respuesta
+app.use((req, res, next) => {
+  totalRequests++;
+  const start = Date.now();
+  res.on("finish", () => {
+    const elapsed = Date.now() - start;
+    avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
+  });
+  next();
+});
+
 const PORT = process.env.PORT || 8080;
 
 // URLs de los microservicios
@@ -29,7 +46,7 @@ const services = {
   auth:           { url: MS_AUTH_URL,           prefix: "/api/auth",           healthPath: "/health" },
 };
 
-// Estado del circuit breaker
+// Estado del circuit breaker + metricas por servicio
 const circuitStates = {};
 for (const [name] of Object.entries(services)) {
   circuitStates[name] = {
@@ -38,12 +55,17 @@ for (const [name] of Object.entries(services)) {
     halfOpen: false,
     ultimo_fallo_tiempo: 0,
     latencia: 0,
+    totalRequests: 0,
+    errorCount: 0,
+    avgResponseTime: 0,
   };
 }
 
 // Log helper
 function log(tag, msg) {
-  console.log(`[${tag}] ${msg}`);
+  const line = `[${tag}] ${msg}`;
+  console.log(line);
+  serviceLogs.push(line);
 }
 
 // Revisa si un servicio responde (health check rapido)
@@ -105,11 +127,18 @@ function registerFailure(name) {
   }
 }
 
-// Proxy con circuit breaker + health check previo
+// Actualiza metricas de un servicio
+function updateMetrics(name, elapsed, statusCode) {
+  const state = circuitStates[name];
+  state.totalRequests++;
+  state.avgResponseTime = (state.avgResponseTime * 0.9) + (elapsed * 0.1);
+  if (statusCode >= 400) state.errorCount++;
+}
+
+// Proxy con circuit breaker + health check previo + metricas
 function buildProxy(name, target, routePrefix) {
   const state = circuitStates[name];
 
-  // Crear el proxy una sola vez
   const proxy = createProxyMiddleware({
     target,
     changeOrigin: true,
@@ -130,6 +159,7 @@ function buildProxy(name, target, routePrefix) {
       const latencia = fin - inicio;
 
       state.latencia = latencia;
+      updateMetrics(name, latencia, proxyRes.statusCode);
 
       if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
         if (state.abierto || state.halfOpen) {
@@ -153,6 +183,8 @@ function buildProxy(name, target, routePrefix) {
       const latencia = fin - inicio;
 
       state.latencia = latencia;
+      updateMetrics(name, latencia, 503);
+      registerFailure(name);
 
       if (err.code === "ECONNREFUSED") {
         log("ERROR", `No se pudo conectar con ${name}`);
@@ -161,8 +193,6 @@ function buildProxy(name, target, routePrefix) {
       } else {
         log("ERROR", `Servicio ${name}: ${err.message}`);
       }
-
-      registerFailure(name);
 
       if (!res.headersSent) {
         res.status(503).json({
@@ -176,7 +206,6 @@ function buildProxy(name, target, routePrefix) {
 
   // Wrapper con health check previo y circuit breaker
   return async (req, res, next) => {
-    // 1. Verificar circuit breaker
     const circuitStatus = getCircuitStatus(name);
 
     if (circuitStatus === "OPEN") {
@@ -190,7 +219,6 @@ function buildProxy(name, target, routePrefix) {
     if (circuitStatus === "HALF-OPEN") {
       log(name.toUpperCase(), "Peticion en HALF-OPEN (prueba de recuperacion)");
       
-      // En HALF-OPEN: hacer health check primero para saber si esta disponible
       const isHealthy = await checkHealth(target, "/health", 2000);
       
       if (!isHealthy) {
@@ -201,12 +229,10 @@ function buildProxy(name, target, routePrefix) {
         });
       }
       
-      // Si health check pasa, resetear y dejar pasar
       log(name.toUpperCase(), "Health check en HALF-OPEN exitoso - cerrando circuito");
       registerSuccess(name);
     }
 
-    // 2. Health check rapido antes de reenviar (solo en CLOSED)
     if (circuitStatus === "CLOSED") {
       const isHealthy = await checkHealth(target, "/health", 1500);
       if (!isHealthy) {
@@ -218,7 +244,6 @@ function buildProxy(name, target, routePrefix) {
       }
     }
 
-    // 3. Si todo bien, reenviar al proxy
     proxy(req, res, next);
   };
 }
@@ -238,6 +263,8 @@ app.get("/", (req, res) => {
       "GET  /health",
       "GET  /health/:servicio",
       "GET  /monitoreo",
+      "GET  /logs",
+      "GET  /metrics",
       "ALL  /api/usuarios/*",
       "ALL  /api/disponibilidad/*",
       "ALL  /api/citas/*",
@@ -253,31 +280,50 @@ app.get("/health", (req, res) => {
   res.json({
     servicio: "ms-gateway",
     estado: "ok",
-    timestamp: new Date(),
+    response_time_ms: Math.round(avgResponseTime),
+    timestamp: new Date()
   });
 });
 
 // Health de cada servicio
 app.get("/health/:servicio", async (req, res) => {
   const nombre = req.params.servicio;
+  const inicio = Date.now();
 
   if (!services[nombre]) {
-    return res.status(404).json({ error: `Servicio ${nombre} no encontrado` });
+    return res.status(404).json({ 
+      servicio: nombre, 
+      estado: "no encontrado",
+      response_time_ms: 0,
+      timestamp: new Date() 
+    });
   }
 
   const cfg = services[nombre];
   const isHealthy = await checkHealth(cfg.url, cfg.healthPath);
+  const fin = Date.now();
+  const latencia = fin - inicio;
 
   if (isHealthy) {
     log(`HEALTH_${nombre.toUpperCase()}`, "Respuesta health [OK]");
-    res.json({ servicio: nombre, status: "up" });
+    res.json({
+      servicio: nombre,
+      estado: "ok",
+      response_time_ms: latencia,
+      timestamp: new Date()
+    });
   } else {
     log(`HEALTH_${nombre.toUpperCase()}`, "Respuesta health [ERROR]");
-    res.status(503).json({ servicio: nombre, status: "down" });
+    res.status(503).json({
+      servicio: nombre,
+      estado: "down",
+      response_time_ms: latencia,
+      timestamp: new Date()
+    });
   }
 });
 
-// Monitoreo
+// Monitoreo con metricas por servicio
 app.get("/monitoreo", async (req, res) => {
   const servicios = [];
 
@@ -300,20 +346,44 @@ app.get("/monitoreo", async (req, res) => {
     }
 
     const estadoCircuito = getCircuitStatus(nombre);
+    const state = circuitStates[nombre];
 
     servicios.push({
       servicio: nombre,
       disponibilidad,
-      errores: circuitStates[nombre].fallos,
-      latencia_ms: circuitStates[nombre].latencia,
+      errores: state.fallos,
+      latencia_ms: state.latencia,
       estado_circuito: estadoCircuito,
+      metricas: {
+        total_requests: state.totalRequests,
+        error_count: state.errorCount,
+        avg_response_time_ms: Math.round(state.avgResponseTime)
+      }
     });
   }
 
   res.json({
     gateway: "activo",
+    uptime_seconds: Math.round(process.uptime()),
     total_servicios: servicios.length,
     servicios,
+  });
+});
+
+// Logs
+app.get("/logs", (req, res) => {
+  res.json(serviceLogs);
+});
+
+// Metrics del gateway
+app.get("/metrics", (req, res) => {
+  res.json({
+    servicio: "ms-gateway",
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+    total_requests: totalRequests,
+    error_count: errorCount,
+    avg_response_time_ms: Math.round(avgResponseTime)
   });
 });
 
@@ -332,7 +402,9 @@ app.use((req, res) => {
 
 // Inicio
 app.listen(PORT, () => {
-  log("ms-gateway", `Corriendo en puerto ${PORT}`);
+  const line = `[ms-gateway] Corriendo en puerto ${PORT}`;
+  console.log(line);
+  serviceLogs.push(line);
   for (const [name, cfg] of Object.entries(services)) {
     log("ms-gateway", `${name} -> ${cfg.url}`);
   }

@@ -8,9 +8,29 @@ app.use(express.json());
 
 const SERVICIO = "ms-especialidades";
 
+let serviceLogs = [];
+let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
+
 function log(nivel, mensaje) {
-  console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
+  const line = `[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`;
+  console.log(line);
+  serviceLogs.push(line);
+  if (serviceLogs.length > 100) serviceLogs.shift();
 }
+
+// Middleware de tiempos de respuesta
+app.use((req, res, next) => {
+  totalRequests++;
+  const start = Date.now();
+  res.on("finish", () => {
+    const elapsed = Date.now() - start;
+    avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
+  });
+  next();
+});
 
 const pool = mysql.createPool({
   host:             process.env.DB_HOST     || "localhost",
@@ -30,6 +50,8 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     endpoints: [
       "GET    /health",
+      "GET    /logs",
+      "GET    /metrics",
       "GET    /especialidades",
       "GET    /especialidades/:id",
       "POST   /especialidades",
@@ -40,7 +62,27 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ servicio: SERVICIO, estado: "ok", timestamp: new Date() });
+  res.json({
+    servicio: SERVICIO,
+    estado: "ok",
+    response_time_ms: Math.round(avgResponseTime),
+    timestamp: new Date()
+  });
+});
+
+app.get("/logs", (req, res) => {
+  res.json(serviceLogs);
+});
+
+app.get("/metrics", (req, res) => {
+  res.json({
+    servicio: SERVICIO,
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+    total_requests: totalRequests,
+    error_count: errorCount,
+    avg_response_time_ms: Math.round(avgResponseTime)
+  });
 });
 
 app.get("/especialidades", async (req, res) => {

@@ -8,14 +8,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+let serviceLogs = [];
+let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
+
 const SERVICIO   = "ms-auth";
 const PORT       = process.env.PORT       || 3006;
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const JWT_EXPIRES= process.env.JWT_EXPIRES|| "8h";
 
 function log(nivel, mensaje) {
-  console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
+  const line = `[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`;
+  console.log(line);
+  serviceLogs.push(line);
+  if (serviceLogs.length > 100) serviceLogs.shift();
 }
+
+// Middleware de tiempos de respuesta
+app.use((req, res, next) => {
+  totalRequests++;
+  const start = Date.now();
+  res.on("finish", () => {
+    const elapsed = Date.now() - start;
+    avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
+  });
+  next();
+});
 
 const pool = mysql.createPool({
   host:             process.env.DB_HOST     || "localhost",
@@ -72,7 +92,27 @@ async function bootstrapAuthSchema() {
 }
 
 app.get("/health", (req, res) => {
-  res.json({ servicio: SERVICIO, estado: "ok", timestamp: new Date() });
+  res.json({
+    servicio: SERVICIO,
+    estado: "ok",
+    response_time_ms: Math.round(avgResponseTime),
+    timestamp: new Date()
+  });
+});
+
+app.get("/logs", (req, res) => {
+  res.json(serviceLogs);
+});
+
+app.get("/metrics", (req, res) => {
+  res.json({
+    servicio: SERVICIO,
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+    total_requests: totalRequests,
+    error_count: errorCount,
+    avg_response_time_ms: Math.round(avgResponseTime)
+  });
 });
 
 app.post("/login", async (req, res) => {
@@ -95,8 +135,8 @@ app.post("/login", async (req, res) => {
 
     const user = rows[0];
     if (!user.activo) {
-      log("WARN", `POST /login — usuario inactivo id=${user.id}`);
-      return res.status(403).json({ error: "Usuario inactivo" });
+      log("WARN", `POST /login — usuario inactivo id=${user.id}. Permitiendo login pero con acceso restringido.`);
+      // Se permite loguear, pero el token reflejará activo=false
     }
 
     const ok = await bcrypt.compare(password, user.password_hash || "");
@@ -105,12 +145,12 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Credenciales invalidas" });
     }
 
-    const payload = { sub: user.id, rol: user.rol, email: user.email, nombre: user.nombre };
+    const payload = { sub: user.id, rol: user.rol, email: user.email, nombre: user.nombre, activo: !!user.activo };
     const token   = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    log("INFO", `POST /login — sesion iniciada id=${user.id} rol=${user.rol}`);
+    log("INFO", `POST /login — sesion iniciada id=${user.id} rol=${user.rol} activo=${!!user.activo}`);
     return res.json({
       token,
-      user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol },
+      user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, activo: !!user.activo },
       expires_in: JWT_EXPIRES,
     });
   } catch (err) {

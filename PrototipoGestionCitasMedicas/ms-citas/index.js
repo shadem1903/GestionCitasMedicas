@@ -9,9 +9,29 @@ app.use(express.json());
 
 const SERVICIO = "ms-citas";
 
+let serviceLogs = [];
+let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
+
 function log(nivel, mensaje) {
-  console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
+  const line = `[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`;
+  console.log(line);
+  serviceLogs.push(line);
+  if (serviceLogs.length > 100) serviceLogs.shift();
 }
+
+// Middleware de tiempos de respuesta
+app.use((req, res, next) => {
+  totalRequests++;
+  const start = Date.now();
+  res.on("finish", () => {
+    const elapsed = Date.now() - start;
+    avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
+  });
+  next();
+});
 
 // ── Circuit Breaker ──────────────────────────────────────────
 class CircuitBreaker {
@@ -135,6 +155,23 @@ async function registrarEventoHistorial(cita, accion, detalle = null) {
   }
 }
 
+async function enviarNotificacion(usuario_id, mensaje) {
+  if (!usuario_id) return;
+  try {
+    await cbUsuarios.ejecutar(async () => {
+      const res = await fetch(`${MS_USUARIOS_URL}/usuarios/${usuario_id}/notificaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        timeout: 5000,
+        body: JSON.stringify({ mensaje }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    });
+  } catch (err) {
+    log("WARN", `No se pudo enviar notificacion al usuario ${usuario_id}: ${err.message}`);
+  }
+}
+
 async function obtenerCitaPorId(id) {
   const [rows] = await pool.execute("SELECT * FROM citas WHERE id = ?", [id]);
   return rows.length ? rows[0] : null;
@@ -147,6 +184,8 @@ app.get("/", (req, res) => {
     version: "2.2.0",
     endpoints: [
       "GET   /health",
+      "GET   /logs",
+      "GET   /metrics",
       "GET   /citas?medico_id=&paciente_id=&fecha=&estado=",
       "GET   /citas/:id",
       "POST  /citas",
@@ -161,11 +200,27 @@ app.get("/health", (req, res) => {
   res.json({
     servicio: SERVICIO,
     estado: "ok",
+    response_time_ms: Math.round(avgResponseTime),
     timestamp: new Date(),
     circuit_breakers: {
       "ms-usuarios":  cbUsuarios.estado,
       "ms-historial": cbHistorial.estado,
     },
+  });
+});
+
+app.get("/logs", (req, res) => {
+  res.json(serviceLogs);
+});
+
+app.get("/metrics", (req, res) => {
+  res.json({
+    servicio: SERVICIO,
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+    total_requests: totalRequests,
+    error_count: errorCount,
+    avg_response_time_ms: Math.round(avgResponseTime)
   });
 });
 
@@ -280,6 +335,10 @@ app.post("/citas", async (req, res) => {
     log("INFO", `POST /citas — cita creada id=${result.insertId}`);
     await registrarEventoHistorial(citaCreada, "creada", "Cita agendada");
 
+    // Enviar notificaciones
+    await enviarNotificacion(paciente_id, `Se ha agendado una nueva cita con ${medico.nombre} para el ${fecha} a las ${hora_inicio}.`);
+    await enviarNotificacion(medico_id, `Nueva cita agendada por el paciente ${paciente.nombre} para el ${fecha} a las ${hora_inicio}.`);
+
     const [rows] = await pool.execute(`
       SELECT id, paciente_id, medico_id,
              paciente_nombre AS paciente, medico_nombre AS medico,
@@ -340,6 +399,11 @@ app.patch("/citas/:id/completar", async (req, res) => {
     if (!r.affectedRows) return res.status(404).json({ error: "Cita no encontrada o no completable" });
     const cita = await obtenerCitaPorId(req.params.id);
     await registrarEventoHistorial(cita, "completada", "Cita completada");
+    
+    // Notificaciones
+    await enviarNotificacion(cita.paciente_id, `Tu cita del ${cita.fecha} con ${cita.medico_nombre} ha sido completada.`);
+    await enviarNotificacion(cita.medico_id, `La cita con ${cita.paciente_nombre} ha sido completada.`);
+    
     log("INFO", `PATCH /citas/${req.params.id}/completar — OK`);
     res.json({ mensaje: "Cita completada" });
   } catch (err) {

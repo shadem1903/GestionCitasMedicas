@@ -311,6 +311,10 @@ document.getElementById("btn-logout").addEventListener("click", logout);
    DASHBOARD
 ═════════════════════════════════════════════════════════════ */
 
+/* ═════════════════════════════════════════════════════════════
+   DASHBOARD
+═════════════════════════════════════════════════════════════ */
+
 async function renderDashboard() {
   const main = document.getElementById("main-content");
   main.innerHTML = `
@@ -324,39 +328,96 @@ async function renderDashboard() {
     </div>
     <p class="section-title" style="margin-top:8px">Estado de microservicios</p>
     <div class="services-grid" id="services-grid">
-      ${Object.entries({ "MS-1 Usuarios":"3001","MS-3 Disponibilidad":"3003","MS-4 Citas":"3004","MS-7 Especialidades":"3007" })
-        .map(([name,port]) => `
+      ${Object.entries({ 
+        "MS-Gateway":"8080", 
+        "MS-1 Usuarios":"3001",
+        "MS-3 Disponibilidad":"3003",
+        "MS-4 Citas":"3004",
+        "MS-5 Historial":"3005",
+        "MS-7 Especialidades":"3007" 
+      }).map(([name,port]) => `
           <div class="service-card">
             <div class="service-indicator loading" id="ind-${port}"></div>
             <div class="service-info">
               <div class="name">${name}</div>
-              <div class="port">:${port}</div>
+              <div class="port" id="rt-${port}">:${port}</div>
             </div>
           </div>`).join("")}
     </div>
-    <p class="section-title" style="margin-top:20px">Logs del sistema</p>
-    <div class="logs-container" id="logs-container">
-      <div class="log-line">Cargando logs...</div>
+    
+    <div id="admin-metrics-wrapper" class="hidden" style="margin-top:20px;">
+      <p class="section-title">Monitor de Rendimiento y Salud (Métricas)</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Servicio</th>
+            <th>Estado</th>
+            <th>Uptime (s)</th>
+            <th>Uso de Memoria</th>
+            <th>Peticiones Totales</th>
+            <th>Errores HTTP (4xx/5xx)</th>
+            <th>Tiempo Promedio (ms)</th>
+          </tr>
+        </thead>
+        <tbody id="metrics-tbody">
+          <tr><td colspan="7" style="text-align:center">Cargando métricas...</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;text-align:right">
+        <button class="btn btn-sm btn-ghost" onclick="fetchMetrics()">Actualizar Métricas</button>
+      </div>
+    </div>
+
+    <div id="admin-logs-wrapper" class="hidden">
+      <p class="section-title" style="margin-top:20px">Logs en tiempo real (Últimos 100 por servicio)</p>
+      <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <select id="log-service-selector" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border)">
+          <option value="/logs">MS-Gateway</option>
+          <option value="/api/usuarios/logs">MS-1 Usuarios</option>
+          <option value="/api/disponibilidad/logs">MS-3 Disponibilidad</option>
+          <option value="/api/citas/logs">MS-4 Citas</option>
+          <option value="/api/historial/logs">MS-5 Historial</option>
+          <option value="/api/especialidades/logs">MS-7 Especialidades</option>
+        </select>
+        <button class="btn btn-sm btn-ghost" onclick="fetchServiceLogs()">Actualizar Logs</button>
+      </div>
+      <div id="service-logs" class="logs-container">Cargando logs...</div>
     </div>`;
 
   // Health checks en paralelo
   const healthChecks = [
-    { name: "MS-1 Usuarios",        port: "3001", url: `${API.usuarios}/health` },
-    { name: "MS-3 Disponibilidad",  port: "3003", url: `${API.disponibilidad}/health` },
-    { name: "MS-4 Citas",           port: "3004", url: `${API.citas}/health` },
-    { name: "MS-7 Especialidades",  port: "3007", url: `${API.especialidades}/health` },
+    { name: "MS-Gateway",           port: "8080", url: `http://localhost:8080/health` },
+    { name: "MS-1 Usuarios",        port: "3001", url: `${API.usuarios.replace('/api/usuarios','')}/health` },
+    { name: "MS-3 Disponibilidad",  port: "3003", url: `${API.disponibilidad.replace('/api/disponibilidad','')}/health` },
+    { name: "MS-4 Citas",           port: "3004", url: `${API.citas.replace('/api/citas','')}/health` },
+    { name: "MS-5 Historial",       port: "3005", url: `${API.historial.replace('/api/historial','')}/health` },
+    { name: "MS-7 Especialidades",  port: "3007", url: `${API.especialidades.replace('/api/especialidades','')}/health` },
   ];
 
   healthChecks.forEach(async ({ port, url }) => {
     const ind = document.getElementById(`ind-${port}`);
+    const rt  = document.getElementById(`rt-${port}`);
     if (!ind) return;
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
-      ind.className = `service-indicator ${r.ok ? "ok" : "error"}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      const data = await res.json();
+      ind.className = `service-indicator ${res.ok ? "ok" : "error"}`;
+      if (res.ok && data.response_time_ms !== undefined) {
+        rt.textContent = `:${port} — ${data.response_time_ms}ms`;
+      }
     } catch {
       ind.className = "service-indicator error";
     }
   });
+
+  // Mostrar métricas y logs solo para admin
+  if (currentUser?.rol === "admin") {
+    document.getElementById("admin-logs-wrapper").classList.remove("hidden");
+    document.getElementById("admin-metrics-wrapper").classList.remove("hidden");
+    document.getElementById("log-service-selector").addEventListener("change", fetchServiceLogs);
+    fetchServiceLogs();
+    fetchMetrics();
+  }
 
   // Conteos en paralelo
   const counts = await Promise.allSettled([
@@ -377,11 +438,79 @@ async function renderDashboard() {
       <div class="sub">${subs[i]}</div>
     </div>`;
   }).join("");
-  
-  // Cargar logs
-  cargarLogs();
 }
 
+/* ── Funciones de métricas y logs (globales para onclick) ── */
+
+window.fetchServiceLogs = async function() {
+  const path = document.getElementById("log-service-selector").value;
+  const container = document.getElementById("service-logs");
+  container.innerHTML = "Cargando logs...";
+  try {
+    const res = await fetch(`http://localhost:8080${path}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const logs = await res.json();
+    if (!logs.length) {
+      container.innerHTML = "No hay logs recientes.";
+      return;
+    }
+    container.innerHTML = logs.map(line => {
+      let cls = "log-line";
+      if (line.includes("[ERROR]")) cls += " error";
+      if (line.includes("[WARN]")) cls += " warn";
+      return `<div class="${cls}">${line.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+    }).join("");
+    container.scrollTop = container.scrollHeight;
+  } catch (err) {
+    container.innerHTML = `<div class="log-line error">Error al obtener logs: ${err.message}</div>`;
+  }
+};
+
+window.fetchMetrics = async function() {
+  const metricsEndpoints = [
+    { name: "MS-Gateway",        url: "http://localhost:8080/metrics" },
+    { name: "MS-1 Usuarios",     url: "http://localhost:8080/api/usuarios/metrics" },
+    { name: "MS-3 Disponibilidad", url: "http://localhost:8080/api/disponibilidad/metrics" },
+    { name: "MS-4 Citas",        url: "http://localhost:8080/api/citas/metrics" },
+    { name: "MS-5 Historial",    url: "http://localhost:8080/api/historial/metrics" },
+    { name: "MS-7 Especialidades", url: "http://localhost:8080/api/especialidades/metrics" }
+  ];
+
+  const tbody = document.getElementById("metrics-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center">Actualizando...</td></tr>`;
+
+  try {
+    const results = await Promise.allSettled(
+      metricsEndpoints.map(e => fetch(e.url).then(r => r.json()))
+    );
+    
+    tbody.innerHTML = results.map((r, i) => {
+      const name = metricsEndpoints[i].name;
+      if (r.status === "fulfilled" && r.value) {
+        const m = r.value;
+        return `<tr>
+          <td style="font-weight:bold">${name}</td>
+          <td><span style="background-color:var(--success);color:white;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:bold;">Activo</span></td>
+          <td>${m.uptime_seconds || 0}s</td>
+          <td>${m.memory_mb || 0} MB</td>
+          <td>${m.total_requests || 0}</td>
+          <td>${m.error_count > 0 ? "<span style='color:var(--danger)'>" + m.error_count + "</span>" : "0"}</td>
+          <td>${m.avg_response_time_ms || 0} ms</td>
+        </tr>`;
+      } else {
+        return `<tr>
+          <td style="font-weight:bold">${name}</td>
+          <td><span style="background-color:var(--danger);color:white;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:bold;">Apagado</span></td>
+          <td colspan="5" style="color:var(--danger)">El servicio no responde</td>
+        </tr>`;
+      }
+    }).join("");
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:var(--danger)">Error cargando métricas</td></tr>`;
+  }
+};
+ 
 async function cargarLogs() {
   const container = document.getElementById("logs-container");
   if (!container) return;

@@ -4,17 +4,17 @@ services:
     container_name: citas_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: admin123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: db_usuarios
     ports:
-      - "3307:3306"
+      - "${PORT_MYSQL:-3307}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uadmin", "-padmin123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USER}", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -29,12 +29,18 @@ services:
       PORT: 3001
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_USER: admin
-      DB_PASSWORD: admin123
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: db_usuarios
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - citas_net
 
@@ -46,62 +52,18 @@ services:
       PORT: 3007
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_USER: admin
-      DB_PASSWORD: admin123
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: db_especialidades
     depends_on:
       mysql:
         condition: service_healthy
-    networks:
-      - citas_net
-
-  ms-disponibilidad:
-    build: ./ms-disponibilidad
-    container_name: ms_disponibilidad
-    restart: unless-stopped
-    environment:
-      PORT: 3003
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: admin
-      DB_PASSWORD: admin123
-      DB_NAME: db_disponibilidad
-      MS_USUARIOS_URL: http://ms-usuarios:3001
-      MS_ESPECIALIDADES_URL: http://ms-especialidades:3007
-      MS_CITAS_URL: http://ms-citas:3004
-    depends_on:
-      mysql:
-        condition: service_healthy
-      ms-usuarios:
-        condition: service_started
-      ms-especialidades:
-        condition: service_started
-      ms-citas:
-        condition: service_started
-    networks:
-      - citas_net
-
-  ms-citas:
-    build: ./ms-citas
-    container_name: ms_citas
-    restart: unless-stopped
-    environment:
-      PORT: 3004
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: admin
-      DB_PASSWORD: admin123
-      DB_NAME: db_citas
-      MS_USUARIOS_URL: http://ms-usuarios:3001
-      MS_DISPONIBILIDAD_URL: http://ms-disponibilidad:3003
-      MS_HISTORIAL_URL: http://ms-historial:3005
-    depends_on:
-      mysql:
-        condition: service_healthy
-      ms-usuarios:
-        condition: service_started
-      ms-historial:
-        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - citas_net
 
@@ -113,12 +75,104 @@ services:
       PORT: 3005
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_USER: admin
-      DB_PASSWORD: admin123
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: db_historial
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - citas_net
+
+  ms-auth:
+    build: ./ms-auth
+    container_name: ms_auth
+    restart: unless-stopped
+    environment:
+      PORT: 3006
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_usuarios
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES: ${JWT_EXPIRES:-8h}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - citas_net
+
+  ms-citas:
+    build: ./ms-citas
+    container_name: ms_citas
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_citas
+      MS_USUARIOS_URL: http://ms-usuarios:3001
+      MS_HISTORIAL_URL: http://ms-historial:3005
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ms-usuarios:
+        condition: service_healthy
+      ms-historial:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - citas_net
+
+  ms-disponibilidad:
+    build: ./ms-disponibilidad
+    container_name: ms_disponibilidad
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_disponibilidad
+      MS_USUARIOS_URL: http://ms-usuarios:3001
+      MS_ESPECIALIDADES_URL: http://ms-especialidades:3007
+      MS_CITAS_URL: http://ms-citas:3004
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ms-usuarios:
+        condition: service_healthy
+      ms-especialidades:
+        condition: service_healthy
+      ms-citas:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - citas_net
 
@@ -135,33 +189,26 @@ services:
       MS_ESPECIALIDADES_URL: http://ms-especialidades:3007
       MS_AUTH_URL: http://ms-auth:3006
     ports:
-      - "8080:8080"
+      - "${PORT_GATEWAY:-8080}:8080"
     depends_on:
-      - ms-usuarios
-      - ms-disponibilidad
-      - ms-citas
-      - ms-historial
-      - ms-especialidades
-      - ms-auth
-    networks:
-      - citas_net
-
-  ms-auth:
-    build: ./ms-auth
-    container_name: ms_auth
-    restart: unless-stopped
-    environment:
-      PORT: 3006
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: admin
-      DB_PASSWORD: admin123
-      DB_NAME: db_usuarios
-      JWT_SECRET: super_secret_dev_key
-      JWT_EXPIRES: 8h
-    depends_on:
-      mysql:
+      ms-usuarios:
         condition: service_healthy
+      ms-disponibilidad:
+        condition: service_healthy
+      ms-citas:
+        condition: service_healthy
+      ms-historial:
+        condition: service_healthy
+      ms-especialidades:
+        condition: service_healthy
+      ms-auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - citas_net
 
@@ -170,9 +217,16 @@ services:
     container_name: ms_frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${PORT_FRONTEND:-80}:80"
     depends_on:
-      - ms-gateway
+      ms-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - citas_net
 

@@ -139,6 +139,46 @@ docker compose logs -f ms-disponibilidad
 
 ---
 
+## Variables de entorno
+
+> ⚠️ **NUNCA subas el archivo `.env` al repositorio. Contiene credenciales reales.**
+
+El proyecto usa un archivo `.env` para centralizar todas las credenciales y puertos. Docker Compose lo lee automáticamente al levantar los servicios.
+
+### Configuración obligatoria
+
+```bash
+# Copia la plantilla y edita los valores
+cp .env.example .env
+```
+
+### Contenido de `.env.example`
+
+```env
+# ── Gestion de Citas Medicas — Variables de entorno ──────────
+
+# ── Base de datos MySQL ───────────────────────────────────────
+MYSQL_ROOT_PASSWORD=root123
+DB_USER=admin
+DB_PASSWORD=admin123
+
+# ── JWT (ms-auth) ─────────────────────────────────────────────
+JWT_SECRET=cambia_esto_en_produccion
+JWT_EXPIRES=8h
+```
+
+| Variable | Descripción | Usado por |
+|---|---|---|
+| `MYSQL_ROOT_PASSWORD` | Contraseña del usuario root de MySQL | MySQL |
+| `DB_USER` | Usuario de la base de datos | Todos los microservicios |
+| `DB_PASSWORD` | Contraseña del usuario de DB | Todos los microservicios |
+| `JWT_SECRET` | Clave secreta para firmar tokens JWT | ms-auth |
+| `JWT_EXPIRES` | Tiempo de expiración del token (ej. `8h`, `1d`) | ms-auth |
+
+> El archivo `.gitignore` ya excluye `.env`. No remover esa línea.
+
+---
+
 ## Requisitos previos
 
 - Docker Desktop instalado y en ejecución
@@ -155,7 +195,14 @@ git clone <url-del-repositorio>
 cd PrototipoGestionCitasMedicas
 ```
 
-### 2. Primera ejecución
+### 2. Configurar variables de entorno
+
+```bash
+cp .env.example .env
+# Editar .env con las credenciales reales si es necesario
+```
+
+### 3. Primera ejecución
 
 ```bash
 docker compose up --build
@@ -171,13 +218,13 @@ Al finalizar verás logs como:
 [ms-auth]           [INFO] Corriendo en puerto 3006
 ```
 
-### 3. Abrir la interfaz web
+### 4. Abrir la interfaz web
 
 Navega a **http://localhost** en tu navegador.
 
 Credenciales de prueba: cualquier email de la tabla de datos + contraseña `123456`.
 
-### 4. Detener los servicios
+### 5. Detener los servicios
 
 ```bash
 # Solo detener (conserva los datos):
@@ -249,6 +296,46 @@ PrototipoGestionCitasMedicas/
 ## Endpoints
 
 Todos los endpoints son accesibles desde el gateway en `http://localhost:8080/api/...`
+
+### Monitoreo · `/api/status`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/status` | Estado de todos los microservicios + circuit breakers + contadores |
+
+```bash
+curl http://localhost:8080/api/status
+```
+
+Respuesta:
+```json
+{
+  "gateway": "ok",
+  "sistema": "operativo",
+  "circuit_breakers": {
+    "disponibilidad→ms-usuarios": "CERRADO",
+    "citas→ms-historial": "CERRADO"
+  },
+  "servicios": {
+    "ms-usuarios": {
+      "errores": 0,
+      "exitosos": 3,
+      "health": { "servicio": "ms-usuarios", "estado": "ok", "latencia_ms": 4 }
+    },
+    "ms-citas": {
+      "errores": 0,
+      "exitosos": 3,
+      "health": { "estado": "ok", "circuit_breakers": { "ms-usuarios": "CERRADO", "ms-historial": "CERRADO" }, "latencia_ms": 5 }
+    }
+  }
+}
+```
+
+- `sistema: "degradado"` y HTTP 207 si algún servicio no responde
+- `errores` / `exitosos` acumulan desde que el gateway arrancó
+- Los circuit breakers de ms-citas y ms-disponibilidad se muestran al nivel raíz
+
+---
 
 ### ms-auth · `/api/auth`
 

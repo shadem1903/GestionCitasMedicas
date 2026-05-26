@@ -13,6 +13,26 @@ function log(nivel, mensaje) {
   console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
 }
 
+// ── Fetch con reintentos ─────────────────────────────────────
+// Reintenta en errores de conexion; ante timeout falla inmediato
+
+async function fetchConReintento(url, opciones = {}, reintentos = 3) {
+  let ultimoError;
+  for (let intento = 1; intento <= reintentos; intento++) {
+    try {
+      return await fetch(url, { timeout: 5000, ...opciones });
+    } catch (err) {
+      ultimoError = err;
+      if (err.type === "request-timeout") {
+        log("WARN", `Timeout al contactar ${url} — sin reintento`);
+        throw err;
+      }
+      log("WARN", `Error de conexion, intento ${intento}/${reintentos}: ${url} — ${err.message}`);
+    }
+  }
+  throw ultimoError;
+}
+
 // ── Circuit Breaker ──────────────────────────────────────────
 class CircuitBreaker {
   constructor(nombre, { umbralFallas = 3, tiempoRecuperacion = 30000 } = {}) {
@@ -76,6 +96,24 @@ const PORT             = process.env.PORT             || 3004;
 const MS_USUARIOS_URL  = process.env.MS_USUARIOS_URL  || "http://localhost:3001";
 const MS_HISTORIAL_URL = process.env.MS_HISTORIAL_URL || "http://localhost:3005";
 
+// ── Verificación de DB al arrancar ───────────────────────────
+async function verificarDB(reintentos = 10, espera = 2000) {
+  for (let intento = 1; intento <= reintentos; intento++) {
+    try {
+      await pool.execute("SELECT 1");
+      log("INFO", `Conexion a DB establecida (intento ${intento}/${reintentos})`);
+      return;
+    } catch (err) {
+      log("WARN", `DB no disponible, intento ${intento}/${reintentos}: ${err.message}`);
+      if (intento === reintentos) {
+        log("ERROR", "No se pudo conectar a la DB tras todos los intentos — abortando");
+        process.exit(1);
+      }
+      await new Promise(r => setTimeout(r, espera));
+    }
+  }
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 function enHorarioLaboral(horaInicio, horaFin) {
   return horaInicio >= "08:00" && horaFin <= "18:00";
@@ -95,7 +133,7 @@ function normalizarFechaSql(value) {
 async function validarUsuario(id) {
   try {
     return await cbUsuarios.ejecutar(async () => {
-      const res = await fetch(`${MS_USUARIOS_URL}/usuarios/${id}`, { timeout: 5000 });
+      const res = await fetchConReintento(`${MS_USUARIOS_URL}/usuarios/${id}`);
       if (!res.ok) {
         if (res.status >= 500) throw new Error(`HTTP ${res.status} de ms-usuarios`);
         return null; // 404 u otro 4xx: usuario no existe, no es falla del servicio
@@ -111,10 +149,9 @@ async function registrarEventoHistorial(cita, accion, detalle = null) {
   if (!cita) return;
   try {
     await cbHistorial.ejecutar(async () => {
-      const res = await fetch(`${MS_HISTORIAL_URL}/historial`, {
+      const res = await fetchConReintento(`${MS_HISTORIAL_URL}/historial`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        timeout: 5000,
         body: JSON.stringify({
           cita_id:    cita.id,
           paciente_id: cita.paciente_id,
@@ -131,7 +168,7 @@ async function registrarEventoHistorial(cita, accion, detalle = null) {
     });
   } catch (err) {
     // Historial es auditoria: si falla, solo se registra en log
-    log("WARN", `No se pudo registrar historial para cita ${cita.id}: ${err.message}`);
+    log("WARN", `[FALLBACK] ms-historial no disponible para cita ${cita.id} — evento omitido: ${err.message}`);
   }
 }
 
@@ -354,8 +391,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor" });
 });
 
-app.listen(PORT, () => {
-  log("INFO", `Corriendo en puerto ${PORT}`);
-  log("INFO", `ms-usuarios en ${MS_USUARIOS_URL}`);
-  log("INFO", `ms-historial en ${MS_HISTORIAL_URL}`);
+verificarDB().then(() => {
+  app.listen(PORT, () => {
+    log("INFO", `Corriendo en puerto ${PORT}`);
+    log("INFO", `ms-usuarios en ${MS_USUARIOS_URL}`);
+    log("INFO", `ms-historial en ${MS_HISTORIAL_URL}`);
+  });
 });

@@ -24,6 +24,24 @@ const pool = mysql.createPool({
 
 const PORT = process.env.PORT || 3001;
 
+// ── Verificación de DB al arrancar ───────────────────────────
+async function verificarDB(reintentos = 10, espera = 2000) {
+  for (let intento = 1; intento <= reintentos; intento++) {
+    try {
+      await pool.execute("SELECT 1");
+      log("INFO", `Conexion a DB establecida (intento ${intento}/${reintentos})`);
+      return;
+    } catch (err) {
+      log("WARN", `DB no disponible, intento ${intento}/${reintentos}: ${err.message}`);
+      if (intento === reintentos) {
+        log("ERROR", "No se pudo conectar a la DB tras todos los intentos — abortando");
+        process.exit(1);
+      }
+      await new Promise(r => setTimeout(r, espera));
+    }
+  }
+}
+
 app.get("/", (req, res) => {
   res.json({
     servicio: SERVICIO,
@@ -152,6 +170,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor" });
 });
 
-app.listen(PORT, () => {
-  log("INFO", `Corriendo en puerto ${PORT}`);
+verificarDB().then(() => {
+  app.listen(PORT, () => {
+    log("INFO", `Corriendo en puerto ${PORT}`);
+  });
 });

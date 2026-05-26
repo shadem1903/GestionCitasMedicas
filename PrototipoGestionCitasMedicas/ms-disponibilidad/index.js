@@ -13,10 +13,30 @@ function log(nivel, mensaje) {
   console.log(`[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`);
 }
 
+// ── Fetch con reintentos ─────────────────────────────────────
+// Reintenta en errores de conexion; ante timeout falla inmediato
+// (el servicio responde pero tarda: reintentar no ayuda)
+async function fetchConReintento(url, opciones = {}, reintentos = 3) {
+  let ultimoError;
+  for (let intento = 1; intento <= reintentos; intento++) {
+    try {
+      return await fetch(url, { timeout: 5000, ...opciones });
+    } catch (err) {
+      ultimoError = err;
+      if (err.type === "request-timeout") {
+        log("WARN", `Timeout al contactar ${url} — sin reintento`);
+        throw err;
+      }
+      log("WARN", `Error de conexion, intento ${intento}/${reintentos}: ${url} — ${err.message}`);
+    }
+  }
+  throw ultimoError;
+}
+
 // ── Circuit Breaker ──────────────────────────────────────────
 class CircuitBreaker {
-  constructor(nombre, { umbralFallas = 3, tiempoRecuperacion = 30000 } = {}) {
-    this.nombre = nombre;
+  constructor(nombre, { umbralFallas = 3, tiempoRecuperacion = 30000 } = {}) { 
+    this.nombre = nombre; 
     this.umbralFallas = umbralFallas;
     this.tiempoRecuperacion = tiempoRecuperacion;
     this.estado = "CERRADO";
@@ -62,7 +82,7 @@ const cbUsuarios       = new CircuitBreaker("ms-usuarios");
 const cbEspecialidades = new CircuitBreaker("ms-especialidades");
 const cbCitas          = new CircuitBreaker("ms-citas");
 
-// ── Pool DB ──────────────────────────────────────────────────
+// Pool DB 
 const pool = mysql.createPool({
   host:             process.env.DB_HOST     || "localhost",
   port:             parseInt(process.env.DB_PORT || "3306", 10),
@@ -75,6 +95,24 @@ const pool = mysql.createPool({
 
 const PORT                  = process.env.PORT                  || 3003;
 const MS_USUARIOS_URL       = process.env.MS_USUARIOS_URL       || "http://localhost:3001";
+
+// ── Verificación de DB al arrancar ───────────────────────────
+async function verificarDB(reintentos = 10, espera = 2000) {
+  for (let intento = 1; intento <= reintentos; intento++) {
+    try {
+      await pool.execute("SELECT 1");
+      log("INFO", `Conexion a DB establecida (intento ${intento}/${reintentos})`);
+      return;
+    } catch (err) {
+      log("WARN", `DB no disponible, intento ${intento}/${reintentos}: ${err.message}`);
+      if (intento === reintentos) {
+        log("ERROR", "No se pudo conectar a la DB tras todos los intentos — abortando");
+        process.exit(1);
+      }
+      await new Promise(r => setTimeout(r, espera));
+    }
+  }
+}
 const MS_ESPECIALIDADES_URL = process.env.MS_ESPECIALIDADES_URL || "http://localhost:3007";
 const MS_CITAS_URL          = process.env.MS_CITAS_URL          || "http://localhost:3004";
 
@@ -82,7 +120,7 @@ const MS_CITAS_URL          = process.env.MS_CITAS_URL          || "http://local
 async function validarMedico(medico_id) {
   try {
     return await cbUsuarios.ejecutar(async () => {
-      const res = await fetch(`${MS_USUARIOS_URL}/usuarios/${medico_id}`, { timeout: 5000 });
+      const res = await fetchConReintento(`${MS_USUARIOS_URL}/usuarios/${medico_id}`);
       if (!res.ok) {
         if (res.status >= 500) throw new Error(`HTTP ${res.status} de ms-usuarios`);
         return null;
@@ -98,7 +136,7 @@ async function validarMedico(medico_id) {
 async function obtenerEspecialidad(especialidad_id) {
   try {
     return await cbEspecialidades.ejecutar(async () => {
-      const res = await fetch(`${MS_ESPECIALIDADES_URL}/especialidades/${especialidad_id}`, { timeout: 5000 });
+      const res = await fetchConReintento(`${MS_ESPECIALIDADES_URL}/especialidades/${especialidad_id}`);
       if (!res.ok) {
         if (res.status >= 500) throw new Error(`HTTP ${res.status} de ms-especialidades`);
         return null;
@@ -114,14 +152,14 @@ async function obtenerCitasConfirmadas(medico_id, fecha) {
   try {
     return await cbCitas.ejecutar(async () => {
       const url = `${MS_CITAS_URL}/citas?medico_id=${medico_id}&fecha=${fecha}&estado=confirmada`;
-      const res = await fetch(url, { timeout: 5000 });
+      const res = await fetchConReintento(url);
       if (!res.ok) throw new Error(`HTTP ${res.status} de ms-citas`);
       const data = await res.json();
       return data.datos || [];
     });
   } catch (err) {
-    log("WARN", `No se pudo obtener citas confirmadas para medico=${medico_id} fecha=${fecha}: ${err.message}`);
-    return []; // degradacion graceful: generar slots sin verificar conflictos
+    log("WARN", `[FALLBACK] ms-citas no disponible para medico=${medico_id} fecha=${fecha} — generando slots sin verificar conflictos`);
+    return []; // degradacion graceful
   }
 }
 
@@ -505,9 +543,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor" });
 });
 
-app.listen(PORT, () => {
-  log("INFO", `Corriendo en puerto ${PORT}`);
-  log("INFO", `ms-usuarios en ${MS_USUARIOS_URL}`);
-  log("INFO", `ms-especialidades en ${MS_ESPECIALIDADES_URL}`);
-  log("INFO", `ms-citas en ${MS_CITAS_URL}`);
+verificarDB().then(() => {
+  app.listen(PORT, () => {
+    log("INFO", `Corriendo en puerto ${PORT}`);
+    log("INFO", `ms-usuarios en ${MS_USUARIOS_URL}`);
+    log("INFO", `ms-especialidades en ${MS_ESPECIALIDADES_URL}`);
+    log("INFO", `ms-citas en ${MS_CITAS_URL}`);
+  });
 });

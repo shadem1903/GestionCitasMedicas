@@ -620,4 +620,4 @@ http://localhost:8080/api/status
 ```
 Este endpoint consulta en paralelo el `/health` de los 6 microservicios y retorna en una sola respuesta el estado general del sistema (`"operativo"` o `"degradado"`), la latencia de cada servicio, los contadores de llamadas exitosas y errores acumulados desde el arranque, y el estado de todos los Circuit Breakers agrupados al nivel raíz. Durante la prueba del CB, este endpoint permitió observar en tiempo real cómo el estado de `ms-citas` cambiaba de `CERRADO` a `ABIERTO` y finalmente volvía a `CERRADO` tras la recuperación.
 
-![/api/status - monitoreo consolidado de todos los servicios](Evidencias/Foto 20.png)
+![/api/status - monitoreo consolidado de todos los servicios](Evidencias/Foto%2020.png)

@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+
+  frontend:
+    image: nginx:alpine
+    container_name: biblioteca_frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend/html:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+
+  backend:
+    image: node:18-alpine
+    container_name: biblioteca_backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    command: sh -c "npm install && node server.js"
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - DB_HOST=base_datos
+<<<<<<< HEAD
+      - DB_PORT=5432
+      - DB_NAME=biblioteca_db
+      - DB_USER=admin_biblioteca
+      - DB_PASSWORD=Segura#2024
+=======
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+>>>>>>> origin/JosueRivera
+    depends_on:
+      - base_datos
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+
+<<<<<<< HEAD
+=======
+  #BASE DE DATOS: MySQL 8.0 
+>>>>>>> origin/JosueRivera
+  base_datos:
+    image: mysql:8.0
+    container_name: biblioteca_db
+    environment:
+<<<<<<< HEAD
+      - POSTGRES_DB=biblioteca_db
+      - POSTGRES_USER=admin_biblioteca
+      - POSTGRES_PASSWORD=Segura#2024
+=======
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+>>>>>>> origin/JosueRivera
+    volumes:
+      - datos_mysql:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3307:3306"
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+    healthcheck:
+<<<<<<< HEAD
+      test: ["CMD-SHELL", "pg_isready -U admin_biblioteca -d biblioteca_db"]
+=======
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+>>>>>>> origin/JosueRivera
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cache:
+    image: redis:7-alpine
+    container_name: biblioteca_cache
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass Cache#2024
+    networks:
+      - biblioteca_net
+    restart: unless-stopped
+
+networks:
+  biblioteca_net:
+    driver: bridge
+
+volumes:
+  datos_mysql:
+    driver: local

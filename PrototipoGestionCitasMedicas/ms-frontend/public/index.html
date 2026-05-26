@@ -1,0 +1,67 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestion de Citas Medicas</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+      </svg>
+      <span>CitasMed</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-section="dashboard">Dashboard</a>
+      <a class="nav-item" data-section="usuarios">Usuarios</a>
+      <a class="nav-item" data-section="especialidades">Especialidades</a>
+      <a class="nav-item" data-section="disponibilidad">Disponibilidad</a>
+      <a class="nav-item" data-section="citas">Citas</a>
+      <a class="nav-item" data-section="historial">Historial</a>
+    </nav>
+    <div class="sidebar-footer">
+      <span>Sistemas Distribuidos</span>
+    </div>
+  </aside>
+
+  <div class="layout">
+    <header class="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="topbar-actions">
+        <div id="notif-wrapper" class="notif-wrapper hidden">
+          <button id="btn-notif" class="btn-notif">
+            🔔 <span id="notif-badge" class="notif-badge hidden">0</span>
+          </button>
+          <div id="notif-dropdown" class="notif-dropdown hidden">
+            <div class="notif-header">Notificaciones</div>
+            <div id="notif-list" class="notif-list">Cargando...</div>
+          </div>
+        </div>
+        <span id="current-user-label" class="user-label hidden"></span>
+        <button id="btn-logout" class="btn btn-ghost btn-sm hidden">Cerrar sesion</button>
+        <button id="btn-nuevo" class="btn btn-primary hidden">+ Nuevo</button>
+      </div>
+    </header>
+    <div id="disabled-banner" class="disabled-banner hidden">
+      Tu usuario está deshabilitado y no puede agendar ni modificar ninguna cita.
+    </div>
+    <main id="main-content" class="main-content"></main>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title"></h3>
+        <button id="modal-close" class="modal-close">X</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="app.js?v=8"></script>
+</body>
+</html>

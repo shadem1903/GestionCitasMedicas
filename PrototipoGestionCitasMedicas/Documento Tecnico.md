@@ -546,34 +546,34 @@ const DB_PASSWORD = process.env.DB_PASSWORD || "admin123";
 ## Docker
 
 ### Docker ps
-![Docker ps - todos los contenedores healthy](Evidencias/Foto 1 .png)
+![Docker ps - todos los contenedores healthy](Evidencias/Foto%201%20.png)
  
 ### Contenedores ejecutándose
-![Contenedores ejecutándose en Docker Desktop con logs de arranque](Evidencias/Foto 2.png)
+![Contenedores ejecutándose en Docker Desktop con logs de arranque](Evidencias/Foto%202.png)
 
 ## Comunicación
 
 ### Consumo entre servicios
-![Logs de comunicación entre servicios al crear una cita](Evidencias/Foto 5.png)
-![Browser y terminal mostrando consumo inter-servicio](Evidencias/Foto 3.png)
+![Logs de comunicación entre servicios al crear una cita](Evidencias/Foto%205.png)
+![Browser y terminal mostrando consumo inter-servicio](Evidencias/Foto%203.png)
 
 ### Respuestas HTTP
-![Gateway endpoints disponibles](Evidencias/Foto 4.png)
+![Gateway endpoints disponibles](Evidencias/Foto%204.png)
 
 ## Base de datos
 
 ### Datos almacenados
-![SHOW DATABASES - 5 schemas desacoplados](Evidencias/Foto 6.png)
-![Datos en db_usuarios - pacientes, médicos y admin](Evidencias/Foto 7.png)
-![Datos en db_especialidades](Evidencias/Foto 8.png)
-![Datos en db_citas - cita registrada con nombres denormalizados](Evidencias/Foto 9.png)
+![SHOW DATABASES - 5 schemas desacoplados](Evidencias/Foto%206.png)
+![Datos en db_usuarios - pacientes, médicos y admin](Evidencias/Foto%207.png)
+![Datos en db_especialidades](Evidencias/Foto%208.png)
+![Datos en db_citas - cita registrada con nombres denormalizados](Evidencias/Foto%209.png)
 
 ### Circuito CERRADO (funcionando normal)
-![Circuit Breaker en estado CERRADO - operación normal](Evidencias/Foto 10.png)
+![Circuit Breaker en estado CERRADO - operación normal](Evidencias/Foto%2010.png)
 
 Bajamos el servicio de ms-citas
 
-![docker stop ms_citas - contenedor detenido](Evidencias/Foto 12.png)
+![docker stop ms_citas - contenedor detenido](Evidencias/Foto%2012.png)
 
 Circuit Breaker — Descripción de la prueba
 Para demostrar el comportamiento del Circuit Breaker se utilizó el endpoint GET /api/disponibilidad/slots (http://localhost:8080/api/disponibilidad/disponibilidad/slots?medico_id=3&fecha=2026-06-20), que internamente llama a ms-citas para verificar citas confirmadas antes de generar los slots disponibles.
@@ -586,12 +586,12 @@ Circuito abierto: Tras 3 fallas consecutivas el CB pasó a estado ABIERTO. Los r
 
 Recuperación: Se reinició ms-citas con docker start ms_citas. Tras 30 segundos el CB pasó a SEMI_ABIERTO y dejó pasar una llamada de prueba. Al ser exitosa, el circuito volvió a CERRADO automáticamente, confirmado tanto en los logs (Recuperado exitosamente — Estado: CERRADO) como en el endpoint de health.
 
-![Servicio funcionando - logs normales y slots respondiendo](Evidencias/Foto 11.png)
-![Falla 1/3 - primer intento fallido al contactar ms-citas](Evidencias/Foto 13.png)
-![CB ABIERTO - health muestra ms-citas ABIERTO tras 3 fallas](Evidencias/Foto 14.png)
-![docker start ms_citas - reiniciando el servicio](Evidencias/Foto 15.png)
-![Logs de recuperación - FALLBACK y luego solicitud exitosa](Evidencias/Foto 16.png)
-![CB CERRADO - health confirma recuperación completa](Evidencias/Foto 17.png)
+![Servicio funcionando - logs normales y slots respondiendo](Evidencias/Foto%2011.png)
+![Falla 1/3 - primer intento fallido al contactar ms-citas](Evidencias/Foto%2013.png)
+![CB ABIERTO - health muestra ms-citas ABIERTO tras 3 fallas](Evidencias/Foto%2014.png)
+![docker start ms_citas - reiniciando el servicio](Evidencias/Foto%2015.png)
+![Logs de recuperación - FALLBACK y luego solicitud exitosa](Evidencias/Foto%2016.png)
+![CB CERRADO - health confirma recuperación completa](Evidencias/Foto%2017.png)
 
 
 
@@ -599,7 +599,7 @@ Recuperación: Se reinició ms-citas con docker start ms_citas. Tras 30 segundos
 
 **Logs:** Los logs se observaron en tiempo real desde la terminal con `docker logs -f ms_disponibilidad`, mostrando cada operación con formato uniforme `[timestamp] [servicio] [nivel] mensaje`. Durante las pruebas fueron visibles los niveles INFO para operaciones exitosas, WARN para fallos recuperables y reintentos del Circuit Breaker, y ERROR cuando el circuito se abría tras 3 fallas consecutivas.
 
-![Logs en tiempo real - docker logs ms_disponibilidad](Evidencias/Foto 18.png)
+![Logs en tiempo real - docker logs ms_disponibilidad](Evidencias/Foto%2018.png)
 
 **Health checks:** Cada microservicio expone un endpoint `/health` consultable directamente desde el navegador. Se verificó el estado individual de cada servicio navegando a:
 ```
@@ -612,7 +612,7 @@ http://localhost:8080/api/historial/health
 ```
 Los servicios ms-disponibilidad y ms-citas además exponen el estado actual de sus Circuit Breakers dentro de la misma respuesta.
 
-![Health checks de todos los microservicios desde el navegador](Evidencias/Foto 19.png)
+![Health checks de todos los microservicios desde el navegador](Evidencias/Foto%2019.png)
 
 **Validación de disponibilidad:** El monitoreo consolidado del sistema completo se realizó desde el navegador en:
 ```

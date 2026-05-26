@@ -10,6 +10,8 @@ app.use(express.json());
 
 let serviceLogs = [];
 let avgResponseTime = 0;
+let totalRequests = 0;
+let errorCount = 0;
 
 const SERVICIO   = "ms-auth";
 const PORT       = process.env.PORT       || 3006;
@@ -25,10 +27,12 @@ function log(nivel, mensaje) {
 
 // Middleware de tiempos de respuesta
 app.use((req, res, next) => {
+  totalRequests++;
   const start = Date.now();
   res.on("finish", () => {
     const elapsed = Date.now() - start;
     avgResponseTime = (avgResponseTime * 0.9) + (elapsed * 0.1);
+    if (res.statusCode >= 400) errorCount++;
   });
   next();
 });
@@ -44,27 +48,46 @@ const pool = mysql.createPool({
 });
 
 async function bootstrapAuthSchema() {
-  // Verificar si password_hash ya existe (puede no estar en despliegues antiguos)
-  const [cols] = await pool.execute(
-    `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'password_hash'`
-  );
-  if (!Number(cols[0].c)) {
-    log("WARN", "Columna password_hash no encontrada — agregando al esquema");
-    await pool.execute("ALTER TABLE usuarios ADD COLUMN password_hash VARCHAR(255) NULL");
-  }
+  let intentos = 0;
+  const maxIntentos = 10;
+  
+  while (intentos < maxIntentos) {
+    try {
+      // Verificar si password_hash ya existe
+      const [cols] = await pool.execute(
+        `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'password_hash'`
+      );
+      if (!Number(cols[0].c)) {
+        log("WARN", "Columna password_hash no encontrada — agregando al esquema");
+        await pool.execute("ALTER TABLE usuarios ADD COLUMN password_hash VARCHAR(255) NULL");
+      }
 
-  // Asignar contrasena inicial a usuarios demo sin hash
-  const [rows] = await pool.execute(
-    "SELECT id FROM usuarios WHERE password_hash IS NULL OR password_hash = ''"
-  );
-  if (rows.length) {
-    log("INFO", `Asignando contrasena inicial a ${rows.length} usuario(s) sin hash`);
-    const hash = await bcrypt.hash("123456", 10);
-    for (const row of rows) {
-      await pool.execute("UPDATE usuarios SET password_hash = ? WHERE id = ?", [hash, row.id]);
+      // Asignar contrasena inicial a usuarios demo sin hash
+      const [rows] = await pool.execute(
+        "SELECT id FROM usuarios WHERE password_hash IS NULL OR password_hash = ''"
+      );
+      if (rows.length) {
+        log("INFO", `Asignando contrasena inicial a ${rows.length} usuario(s) sin hash`);
+        const hash = await bcrypt.hash("123456", 10);
+        for (const row of rows) {
+          await pool.execute("UPDATE usuarios SET password_hash = ? WHERE id = ?", [hash, row.id]);
+        }
+        log("INFO", "Contrasenas iniciales asignadas");
+      }
+      
+      log("INFO", "Bootstrap completado");
+      return; // Éxito, salir
+      
+    } catch (err) {
+      intentos++;
+      log("WARN", `Intento ${intentos}/${maxIntentos} fallido: ${err.message}`);
+      if (intentos >= maxIntentos) {
+        log("ERROR", `Maximos intentos alcanzados: ${err.message}`);
+        throw err;
+      }
+      await new Promise(r => setTimeout(r, 3000)); // Esperar 3 segundos
     }
-    log("INFO", "Contrasenas iniciales asignadas");
   }
 }
 

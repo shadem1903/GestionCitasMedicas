@@ -50,6 +50,8 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     endpoints: [
       "GET  /health",
+      "GET  /logs",
+      "GET  /metrics",
       "GET  /historial",
       "GET  /historial/cita/:citaId",
       "POST /historial",
@@ -163,4 +165,4 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   log("INFO", `Corriendo en puerto ${PORT}`);
-});
+});  

@@ -152,6 +152,8 @@ app.get("/", (req, res) => {
     version: "2.1.0",
     endpoints: [
       "GET  /health",
+      "GET  /logs",
+      "GET  /metrics",
       "GET  /doctor-schedules",
       "POST /doctor-schedules",
       "DELETE /doctor-schedules/:id",

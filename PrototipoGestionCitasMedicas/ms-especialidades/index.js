@@ -50,6 +50,8 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     endpoints: [
       "GET    /health",
+      "GET    /logs",
+      "GET    /metrics",
       "GET    /especialidades",
       "GET    /especialidades/:id",
       "POST   /especialidades",

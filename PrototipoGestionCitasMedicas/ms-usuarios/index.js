@@ -6,12 +6,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const SERVICIO = "ms-usuarios";
+
 let serviceLogs = [];
 let avgResponseTime = 0;
 let totalRequests = 0;
 let errorCount = 0;
-
-const SERVICIO = "ms-usuarios";
 
 function log(nivel, mensaje) {
   const line = `[${new Date().toISOString()}] [${SERVICIO}] [${nivel}] ${mensaje}`;
@@ -50,11 +50,17 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     endpoints: [
       "GET    /health",
+      "GET    /logs",
+      "GET    /metrics",
       "GET    /usuarios",
       "GET    /usuarios/:id",
       "POST   /usuarios",
       "PUT    /usuarios/:id",
       "DELETE /usuarios/:id",
+      "PATCH  /usuarios/:id/activar",
+      "GET    /usuarios/:id/notificaciones",
+      "POST   /usuarios/:id/notificaciones",
+      "PUT    /usuarios/:id/notificaciones/:notif_id/read",
     ],
   });
 });

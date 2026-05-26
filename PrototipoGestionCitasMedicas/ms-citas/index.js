@@ -184,6 +184,8 @@ app.get("/", (req, res) => {
     version: "2.2.0",
     endpoints: [
       "GET   /health",
+      "GET   /logs",
+      "GET   /metrics",
       "GET   /citas?medico_id=&paciente_id=&fecha=&estado=",
       "GET   /citas/:id",
       "POST  /citas",
